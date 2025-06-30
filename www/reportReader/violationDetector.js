@@ -2,6 +2,7 @@ process.title = "mmt-operator-detect-violation";
 
 const
 MongoClient = require('../libs/mongodb').MongoClient,
+prediction  = require('../libs/ml_violationDetector'),
 config      = require("../libs/config.js");
 dataAdaptor = require('../libs/dataAdaptor'),
 CONST       = require("../libs/constant");
@@ -175,6 +176,24 @@ function _analyseDatabase (database) {
   });
 }
 
+function _analyseDatabaseML (database) {
+  database.collection("data_link_real").aggregate([], function( err, data ){
+    // print each row of data one by one
+    if ( err || data == undefined || data.length == 0 ){
+      if( err )
+         console.error( err );
+      return _startOver( database );
+    }
+    data.forEach(function (data_row) {
+      prediction(data_row).then(function (result) {
+        console.log("Prediction result for row " + data_row._id + ": " + result);
+      }).catch(function (error) {
+        console.error("Error in prediction for row " + data_row._id + ": " + error);
+      });
+    });
+  });
+}
+
 function checkTimestamps ( database ) {
   database.collection("data_total_real").aggregate([
     { $group: { _id: "$3"} },
@@ -242,7 +261,8 @@ function _detectViolation( database ){
 
       firstTime = false;
       // check for violations
-      _analyseDatabase(database);
+      // _analyseDatabase(database);
+      _analyseDatabaseML(database);
 
       // ensure the repeating of the process
       return setTimeout( _detectViolation, PERIOD, database );
