@@ -15,6 +15,13 @@
     ],
     "metrics": [
         {
+            "name": "attack.DDoS",
+            "title": "DDoS Attack Detected in the Network",
+            "alert_value": 0.5,
+            "violation_value": 0.7,
+            "enable": true
+        },
+        {
             "name": "dlTput.minDlTputRequirement",
             "title": "Minimum Downlink Throughput that needs to be guaranteed",
             "alert_value": 1.5,

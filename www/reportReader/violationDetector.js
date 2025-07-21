@@ -90,7 +90,7 @@ function _getMetrics () {
   const selectedMetric = metrics["selectedMetric"][component.id];
 
   // common metrics
-  const commonMetrics = component.metrics.slice(0);
+  const commonMetrics = JSON.parse(JSON.stringify(component.metrics));
 
   for (let i = 0; i < commonMetrics.length; i++) {
     if (selectedMetric[commonMetrics[i].id] === undefined) {
@@ -176,7 +176,47 @@ function _analyseDatabase (database) {
   });
 }
 
+function _checkViolationML (metric, result, timestamp, database) {
+  if (metric.enable === false) return;
+
+  const alertValue = metric.alert
+  const violationValue = metric.violation
+
+  if (result > violationValue) {
+    _addAlertViolation(metric, result, "violation", timestamp, database);
+  } else if (result > alertValue) {
+    _addAlertViolation(metric, result, "alert", timestamp, database);
+  }
+}
+
+// Getting the most recent selectedMetric value from the database
+function _getMetricML () {
+  const component = metrics["components"].find(item => item.title === "INFLUENCE5G");
+  const selectedMetric = metrics["selectedMetric"][component.id];
+
+  // common metrics
+  const commonMetrics = JSON.parse(JSON.stringify(component.metrics));
+
+  for (let i = 0; i < commonMetrics.length; i++) {
+    if (selectedMetric[commonMetrics[i].id] === undefined) {
+      continue;
+    }
+    commonMetrics[i].alert = selectedMetric[commonMetrics[i].id].alert;
+    commonMetrics[i].violation = selectedMetric[commonMetrics[i].id].violation;
+    commonMetrics[i].enable = selectedMetric[commonMetrics[i].id].enable;
+    commonMetrics[i].unit = selectedMetric[commonMetrics[i].id].unit;
+  }
+
+  // Returning the required metric for checking
+  const attackDetection = commonMetrics.find(item => item.name === "attack.DDoS");
+
+  return attackDetection;
+}
+
+
 function _analyseDatabaseML (database) {
+
+
   database.collection("data_link_real").aggregate([], function( err, data ){
     // print each row of data one by one
     if ( err || data == undefined || data.length == 0 ){
@@ -184,9 +224,15 @@ function _analyseDatabaseML (database) {
          console.error( err );
       return _startOver( database );
     }
+    if (!metrics["components"])
+      return _startOver( database );
+
+  const attackDetectionMetric = _getMetricML();
+
     data.forEach(function (data_row) {
       prediction(data_row).then(function (result) {
-        console.log("Prediction result for row " + data_row._id + ": " + result);
+        _checkViolationML(attackDetectionMetric, result, data_row[ COL.TIMESTAMP ], database);
+        // console.log("Prediction result for row " + data_row._id + ": " + result);
       }).catch(function (error) {
         console.error("Error in prediction for row " + data_row._id + ": " + error);
       });
@@ -221,7 +267,7 @@ function _detectViolation( database ){
     }
     if (firstTime) {
       metrics = data[0];
-    } else if (metrics !== data[0]) {
+    } else if (JSON.stringify(metrics) !== JSON.stringify(data[0])) {
       firstTime = true;
       metrics = data[0];
 

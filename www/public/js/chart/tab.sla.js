@@ -101,7 +101,7 @@ var ReportFactory = {
                name = obj.metricname,
                   value = obj.value;
 
-               const isInfluence = ["dlTput.", "ulTput.", "latency.", "dim."].some(substr => name.startsWith(substr));
+               const isInfluence = ["dlTput.", "ulTput.", "latency.", "dim.", "attack."].some(substr => name.startsWith(substr));
 
                //if no condition => no alert/violation
                if (value == "" || value == undefined)
