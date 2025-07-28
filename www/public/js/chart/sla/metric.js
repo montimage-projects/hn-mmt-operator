@@ -408,7 +408,27 @@ var ReportFactory = {
                      $("[id='violation-" + id + "']").val( sel.violation );
                      $("[id='enable-" + id + "']").prop( "checked", sel.enable );
                   }
+
+                  // only allowing ML or the rest to be triggered
+                  const mlId = metrics.find(item => item.name === "attack.DDoS")?.id;
+                  const mlIdSearch = mlId?.replace(".", "\\.");
+                  $(".onoffswitch-checkbox").change(function() {
+                     // when the ML is selected, disable the rest
+                     if (mlId && $(this).attr("id") === "enable-" + comp.id + "-" + mlId &&
+                        $(".onoffswitch-checkbox:not(#enable-" + comp.id + "-" + mlIdSearch + "):checked").length &&
+                        $(".onoffswitch-checkbox#enable-" + comp.id + "-" + mlIdSearch + ":checked").length) {
+                           $(".onoffswitch-checkbox:not(#enable-" + comp.id + "-" + mlIdSearch + ")").prop("checked", false);
+                           MMTDrop.alert.alert("If ML Attack Detection is enabled, all other metrics will be disabled.");
+                        }
+                     // when another is selected, disable the ML
+                     else if (mlId && $(this).attr("id") !== "enable-" + comp.id + "-" + mlId &&
+                        $(".onoffswitch-checkbox#enable-" + comp.id + "-" + mlIdSearch + ":checked").length) {
+                           $(".onoffswitch-checkbox#enable-" + comp.id + "-" + mlIdSearch).prop("checked", false);
+                           MMTDrop.alert.alert("If any other metric is enabled, ML Attack Detection will be disabled.");
+                        }
+                  });
             }
+
          }//end load the previously selected values to the form
 
 

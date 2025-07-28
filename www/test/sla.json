@@ -19,7 +19,7 @@
             "title": "DDoS Attack Detected in the Network",
             "alert_value": 0.5,
             "violation_value": 0.7,
-            "enable": true
+            "enable": false
         },
         {
             "name": "dlTput.minDlTputRequirement",
@@ -51,7 +51,7 @@
             "alert_value": 10,
             "violation_value": 20,
             "unit": "percent",
-            "enable": true
+            "enable": false
         },
         {
             "name": "ulTput.maxTputVariation",
@@ -59,7 +59,7 @@
             "alert_value": 5,
             "violation_value": 10,
             "unit": "percent",
-            "enable": true
+            "enable": false
         },
         {
             "name": "latency.maxE2ELatency",
@@ -81,14 +81,14 @@
             "title": "Max number of simultaneous user sessions",
             "alert_value": 100,
             "violation_value": 1000,
-            "enable": true
+            "enable": false
         },
         {
             "name": "dim.numberOfTerminals",
             "title": "Max number of devices",
             "alert_value": 10,
             "violation_value": 100,
-            "enable": true
+            "enable": false
         }
     ]
 }

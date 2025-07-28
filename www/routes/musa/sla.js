@@ -307,6 +307,14 @@ function extract_metrics_json( app_config, index, cb ){
          if( metric.unit != undefined )
             metricData.unit = metric.unit;
 
+         if ( metric.name == "attack.DDoS" || metric.name == "dlTput.minDlTputRequirement" ||
+               metric.name == "dlTput.maxDlTputPerSlice" || metric.name == "ulTput.maxUlTputPerSlice" )
+            metricData.support = true;
+         else {
+            metricData.support = false;
+            metricData.enable  = false; //disable by default
+         }
+
          comp.metrics.push(metricData);
          total ++;
       }
