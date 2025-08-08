@@ -216,7 +216,6 @@ function _getMetricML () {
 
 function _analyseDatabaseML (database) {
 
-
   database.collection("data_link_real").aggregate([], function( err, data ){
     // print each row of data one by one
     if ( err || data == undefined || data.length == 0 ){
@@ -238,6 +237,29 @@ function _analyseDatabaseML (database) {
       });
     });
   });
+}
+
+function _isMLEnabled() {
+  const component = metrics["components"].find(item => item.title === "INFLUENCE5G");
+  const selectedMetric = metrics["selectedMetric"][component.id];
+
+  // common metrics
+  const commonMetrics = JSON.parse(JSON.stringify(component.metrics));
+
+  for (let i = 0; i < commonMetrics.length; i++) {
+    if (selectedMetric[commonMetrics[i].id] === undefined) {
+      continue;
+    }
+    commonMetrics[i].alert = selectedMetric[commonMetrics[i].id].alert;
+    commonMetrics[i].violation = selectedMetric[commonMetrics[i].id].violation;
+    commonMetrics[i].enable = selectedMetric[commonMetrics[i].id].enable;
+    commonMetrics[i].unit = selectedMetric[commonMetrics[i].id].unit;
+  }
+
+  // Returning the required metric for checking
+  const attackDetection = commonMetrics.find(item => item.name === "attack.DDoS");
+
+  return attackDetection.enable;
 }
 
 function checkTimestamps ( database ) {
@@ -307,8 +329,8 @@ function _detectViolation( database ){
 
       firstTime = false;
       // check for violations
-      // _analyseDatabase(database);
-      _analyseDatabaseML(database);
+      if (_isMLEnabled()) _analyseDatabaseML(database);
+      else _analyseDatabase(database);
 
       // ensure the repeating of the process
       return setTimeout( _detectViolation, PERIOD, database );
