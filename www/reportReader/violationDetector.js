@@ -257,9 +257,13 @@ function _isMLEnabled() {
   }
 
   // Returning the required metric for checking
-  const attackDetection = commonMetrics.find(item => item.name === "attack.DDoS");
+  try {
+    const attackDetection = commonMetrics.find(item => item.name === "attack.DDoS");
+    return attackDetection.enable;
+  } catch (error) {
+    return false;
+  }
 
-  return attackDetection.enable;
 }
 
 function checkTimestamps ( database ) {
