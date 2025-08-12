@@ -240,6 +240,10 @@ function _analyseDatabaseML (database) {
 }
 
 function _isMLEnabled() {
+  // first time?
+  if( ! metrics["components"])
+    return false;
+
   const component = metrics["components"].find(item => item.title === "INFLUENCE5G");
   const selectedMetric = metrics["selectedMetric"][component.id];
 
