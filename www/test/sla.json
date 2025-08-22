@@ -11,6 +11,10 @@
         {
             "config_name": "when.expirationDate",
             "config_value": "1744018347703"
+        },
+        {
+            "config_name": "who.cidr",
+            "config_value": "0.0.0.0/0"
         }
     ],
     "metrics": [

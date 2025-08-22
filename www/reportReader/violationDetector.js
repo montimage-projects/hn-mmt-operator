@@ -113,9 +113,35 @@ function _getMetrics () {
   return [minDL, maxDL, maxUL, maxDLVar, maxULVar];
 }
 
+// Calculate the range of IPs in a CIDR notation
+const calculateCidrRange = cidr => {
+  const ip4ToInt = ip => ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+  const intToIp4 = int =>
+    [(int >>> 24) & 0xff, (int >>> 16) & 0xff, (int >>> 8) & 0xff, int & 0xff].join('.');
+  const [range, bits = 32] = cidr.split('/');
+  const mask = ~(2 ** (32 - bits) - 1);
+  const answer = [intToIp4(ip4ToInt(range) & mask), intToIp4(ip4ToInt(range) | ~mask)];
+  return [ip4ToInt(answer[0]), ip4ToInt(answer[1])]
+};
+
+
 function _analyseDatabase (database) {
+  if (!metrics["components"])
+    return _startOver( database );
+
   const match = {};
   // match[ COL.TIMESTAMP ] = { $gte: START_TIME, $lt: END_TIME };
+
+  const component = metrics["components"].find(item => item.title === "INFLUENCE5G");
+  const sla = JSON.parse(component.sla);
+  const cidr = sla["config"].find(item => item.config_name === "who.cidr");
+  if (cidr) {
+    const [cidrStart, cidrEnd] = calculateCidrRange(cidr.config_value);
+    match["$or"] = [
+      { ip_src: { $gte: cidrStart, $lte: cidrEnd } },
+      { ip_dst: { $gte: cidrStart, $lte: cidrEnd } }
+    ];
+  }
 
   const group = { _id : {} };
   group["_id"][ COL.TIMESTAMP ] = "$" + COL.TIMESTAMP;
@@ -130,7 +156,7 @@ function _analyseDatabase (database) {
   });
   group[ COL.TIMESTAMP ] = {"$last" : "$"+ COL.TIMESTAMP};
 
-  database.collection("data_total_real").aggregate([{ $match : match } , { $group : group }], function( err, data ){
+  database.collection("data_link_real").aggregate([{ $match : match } , { $group : group }], function( err, data ){
     if ( err || data == undefined || data.length == 0 ){
       if( err )
          console.error( err );
@@ -157,9 +183,6 @@ function _analyseDatabase (database) {
     // // Check for maximum uplink throughput variation
     // const minULTPResult = data.reduce((min, curr) => curr[COL.UL_DATA_VOLUME] < min[COL.UL_DATA_VOLUME] ? curr : min);
     // console.log("Maximum uplink throughput variation: " + (maxULTPResult[COL.UL_DATA_VOLUME] - minULTPResult[COL.UL_DATA_VOLUME]) * CONVERTOR);
-
-    if (!metrics["components"])
-      return _startOver( database );
 
     // Getting metrics from database
     const [minDL, maxDL, maxUL, maxDLVar, maxULVar] = _getMetrics();
@@ -215,16 +238,31 @@ function _getMetricML () {
 
 
 function _analyseDatabaseML (database) {
+  if (!metrics["components"])
+    return _startOver( database );
 
-  database.collection("data_link_real").aggregate([], function( err, data ){
+  const match = {};
+  // match[ COL.TIMESTAMP ] = { $gte: START_TIME, $lt: END_TIME };
+
+  const component = metrics["components"].find(item => item.title === "INFLUENCE5G");
+  const sla = JSON.parse(component.sla);
+  const cidr = sla["config"].find(item => item.config_name === "who.cidr");
+  if (cidr) {
+    const [cidrStart, cidrEnd] = calculateCidrRange(cidr.config_value);
+    match["$or"] = [
+      { ip_src: { $gte: cidrStart, $lte: cidrEnd } },
+      { ip_dst: { $gte: cidrStart, $lte: cidrEnd } }
+    ];
+  }
+
+
+  database.collection("data_link_real").aggregate([{ $match : match }], function( err, data ){
     // print each row of data one by one
     if ( err || data == undefined || data.length == 0 ){
       if( err )
          console.error( err );
       return _startOver( database );
     }
-    if (!metrics["components"])
-      return _startOver( database );
 
   const attackDetectionMetric = _getMetricML();
 
