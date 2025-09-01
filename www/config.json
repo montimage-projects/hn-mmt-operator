@@ -8,31 +8,20 @@
 		"port": 6379
 	},
 	"kafka_input": {
-		"host": "192.168.0.195",
-		"port": 2181,
-		"ssl.ca.location": "data/kafka-ca.cert",
+		"host": "127.0.0.1",
+		"port": 9092,
+		"_ssl.ca.location": "data/kafka-ca.cert",
 		"topic": "mi-reports",
 		"client_name": "mmt-operator-kafka-client"
 	},
 	"file_input": {
-		"data_folder": [
-			"/opt/mmt/probe/result/report/online/",
-			"/tmp/"
-		],
+		"_data_folder": "/tmp/ramdisk/",
+		"data_folder": "/opt/mmt/probe/result/report/online/",
 		"delete_data": true,
-		"nb_readers": 1
+		"nb_readers": 16
 	},
-	"socket_input": {
-		"host": "localhost",
-		"port": 5000,
-		"max_connections": 0
-	},
-	"input_mode": "file",
+	"input_mode": "kafka",
 	"probe_analysis_mode": "offline",
-	"pcap_dump": {
-		"folder": "/opt/mmt/probe/pcap/",
-		"interval": 3600
-	},
 	"local_network": [
 		{
 			"ip": "192.168.0.0",
@@ -51,34 +40,30 @@
 			"mask": "8"
 		},
 		{
-			"ip": "127.0.0.1",
+			"ip": "0.0.0.0",
 			"mask": "255.255.255.255"
 		},
 		{
-			"ip": "45.45.0.1",
-			"mask": "255.255.255.0"
+			"ip": "255.255.255.255",
+			"mask": "255.255.255.255"
+		},
+		{
+			"ip": "127.0.0.1",
+			"mask": "255.255.255.255"
 		}
 	],
 	"probe_stats_period": 5,
 	"buffer": {
-		"max_length_size": 30000,
-		"max_interval": 5
+		"max_length_size": 50000,
+		"max_interval": 31
 	},
 	"micro_flow": {
 		"packet": 1,
 		"byte": 64
 	},
-	"query_cache": {
-		"enable": false,
-		"folder": "/tmp/cache/",
-		"bytes": 10e6,
-		"files": 99
-	},
-	"auto_reload_report": true,
-	"retain_detail_report_period": 3600,
-	"limit_database_size": 999999999999,
+	"retain_detail_report_period": 300,
 	"port_number": 8080,
-	"log_folder": "/opt/mmt/log/operator/",
+	"log_folder": "/tmp/",
 	"is_in_debug_mode": true,
 	"_log": [
 		"error",
@@ -93,13 +78,8 @@
 		"info"
 	],
 	"_modules": [
-		"link",
-		"network",
-		"dpi",
-		"application",
 		"security",
 		"behavior",
-		"enodeb",
 		"ndn",
 		"video",
 		"sla",
@@ -110,16 +90,120 @@
 		"network",
 		"dpi",
 		"security",
-		"application"
+		"application",
+		"gnodeb",
+		"sla",
+		"enforcement"
 	],
+	"test":123,
 	"modules_config": {
-		"enodeb": {
-			"mysql_server": {
-				"host": "localhost",
-				"port": 3306,
-				"user": "root",
-				"password": "montimage",
-				"database": "hss_lte_db"
+		"sla": {
+			"active_check_period": 5,
+			"violation_check_period": 60,
+			"reaction_check_period": 5,
+			"init_components": [
+				  {
+					"id": "1",
+					"ip": "192.168.1.1",
+					"metrics": [],
+					"title": "INFLUENCE5G"
+				}
+			],
+			"init_metrics": [
+			],
+			"actions": {
+				"reroute_packets": {
+					"description": "Packets need to be rerouted",
+					"channel_name": "reroute_packets",
+					"agent_description": "This agent allows to reroute packets",
+					"candidate_metrics": {
+						"dlTput.maxDlTputPerSlice": {
+							"violate": true
+						},
+						"ulTput.maxUlTputPerSlice": {
+							"violate": true
+						},
+						"latency.maxE2ELatency": {
+							"violate": true
+						},
+						"latency.lowJitter": {
+							"violate": true
+						}
+					}
+				},
+				"priority_scheduling": {
+					"description": "Working mode needs to be made adaptive (i.e., serve packets in priority order)",
+					"channel_name": "priority_scheduling",
+					"agent_description": "This agent allows to serve packets based on priority scheduling",
+					"candidate_metrics": {
+						"dlTput.maxDlTputPerSlice": {
+							"violate": true
+						},
+						"ulTput.maxUlTputPerSlice": {
+							"violate": true
+						},
+						"latency.maxE2ELatency": {
+							"violate": true
+						},
+						"latency.lowJitter": {
+							"violate": true
+						}
+					}
+				},
+				"distribute_resource_per_flow": {
+					"description": "Distribute resources equally per flow (rather than per packet)",
+					"channel_name": "distribute_resource_per_flow",
+					"agent_description": "This agent allows to make distribute resources equally per flow",
+					"candidate_metrics": {
+						"dlTput.maxDlTputPerSlice": {
+							"violate": true
+						},
+						"ulTput.maxUlTputPerSlice": {
+							"violate": true
+						},
+						"latency.maxE2ELatency": {
+							"violate": true
+						},
+						"latency.lowJitter": {
+							"violate": true
+						}
+					}
+				},
+				"reset_devices": {
+					"description": "Reset the compromised IoT devices to its factory state",
+					"channel_name": "reset_devices",
+					"agent_description": "This agent sends a reset command to the compromised IoT devices",
+					"candidate_metrics": {
+						"dlTput.maxTputVariation": {
+							"violate": true
+						},
+						"ulTput.maxTputVariation": {
+							"violate": true
+						},
+						"latency.lowJitter": {
+							"violate": true
+						}
+					}
+				},
+				"isolate_devices": {
+					"description": "Isolate the compromised IoT devices from network slice",
+					"channel_name": "isolate_devices",
+					"agent_description": "This agent isolates the compromised IoT devices",
+					"candidate_metrics": {
+						"dlTput.maxDlTputPerSlice": {
+							"violate": true
+						},
+						"ulTput.maxUlTputPerSlice": {
+							"violate": true
+						},
+						"dim.maxPDUsessions": {
+							"violate": true
+						},
+						"dim.numberOfTerminals": {
+							"violate": true
+						}
+					}
+				}
 			}
 		},
 		"report_forward": {
@@ -132,17 +216,7 @@
 				"host": "localhost",
 				"port": 8088
 			},
-			"data_format": "POST /test.php HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nConnection: Keep-Alive\r\nContent-Length: {REPORT-LEN}\r\n\r\n{REPORT}",
-			"data_processing": "if(cache.host == undefined){ const exec=require('child_process').execSync; cache.host=exec('kubectl get pods -A -l thalesOrchestrationId -o jsonpath=\"{..kubernetes\\.io/hostname}\"'), cache.label=exec('kubectl get pods -A -l thalesOrchestrationId -o jsonpath=\"{..thalesOrchestrationId}\"') }; m={alert:m, metadata:{hostname: cache.host, label: cache.label}}; console.log(JSON.stringify(m)); return m;",
 			"keep_alive": true
-		},
-		"_data_processing": "m[1]='probe-A'; return m;"
-	},
-	"_layout": "attack",
-	"auth_token": [
-		{
-			"enable": true,
-			"credentialText": "cumucore"
 		}
-	]
+	}
 }

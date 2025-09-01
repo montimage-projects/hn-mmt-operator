@@ -11,8 +11,9 @@ RUN chmod +x /opt/mmt/operator/bin/www
 WORKDIR /opt/mmt/operator
 RUN rm -rf node_modules/@tensorflow
 RUN npm i @tensorflow/tfjs-node
-COPY www/config-sla-test.json  /opt/mmt/operator/config.json
 
-EXPOSE 8082
+#COPY www/config-sla-test.json  /opt/mmt/operator/config.json
+
+EXPOSE 8080
 
 ENTRYPOINT ["/opt/mmt/operator/bin/www"]

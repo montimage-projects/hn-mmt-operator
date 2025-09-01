@@ -22,8 +22,8 @@ if( val !== undefined ){
 }
 else{
  //ensure that mmt-operator is running on a good nodejs version
-   if( isMainProcess && (process.release.lts === undefined || process.release.lts !== 'Dubnium' ))
-      console.warn("[WARN] MMT-Operator works well on Dubnium release of NodeJS. It may not work on this version "+ process.version +".");
+   if( isMainProcess && (process.release.lts === undefined || process.release.lts !== 'Jod' ))
+      console.warn("[WARN] MMT-Operator works well on Jod release of NodeJS. It may not work properly on this version "+ process.version +".");
    
 // allow to change config.json
    var configPath = path.resolve( path.join( __dirname, "..", "config.json" ));
