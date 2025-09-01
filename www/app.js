@@ -418,7 +418,7 @@ process.on('SIGUSR2', exitHandler.bind(null, { exit: true }, 12));
 process.on('uncaughtException', (err) => {
 	console.error("uncaughtException");
 	console.error(err);
-	exitHandler({}, 1);
+	//exitHandler({}, 1);
 });
 
 module.exports = app;

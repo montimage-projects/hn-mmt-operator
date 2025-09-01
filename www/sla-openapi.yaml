@@ -1,0 +1,66 @@
+openapi: 3.0.4
+info:
+  title: SLA upload - OpenAPI 3.0
+  description: |-
+    This is a sample API to upload SLA into MMT-Operator. The upload process passes 2 steps:
+    - Step 1. upload SLA file: `curl -X POST /musa/sla/upload -F filename=@influence-sla.json`
+    - Step 2. finish: `curl -X POST /musa/sla/upload?act=finish`
+
+    Step 1 can be executed several times to upload different SLAs. Once finishing, step 2 needs to be called to insert SLAs permanently into database.
+    
+    After uploading a SLA file, you can call `curl -X GET /musa/sla/upload` to get the current parsing status of SLA file.
+  contact:
+    email: huunghia.nguyen@montimage.eu
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.12
+externalDocs:
+  description: Find out more about MMT
+  url: https://swagger.io
+servers:
+  - url: http://mmt-operator.local:8080
+paths:
+  /musa/sla/upload:
+    post:
+      summary: Updates a pet in the store with form data.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                  format: binary
+                  description: JSON file of SLA
+      parameters:
+        - name: act
+          in: query
+          description: Whether finish uploading SLA files. When `act=finish`, JSON file given by `filename` does not take into account
+          schema:
+            type: string
+            enum: [finish, cancel, upload]
+            
+      responses:
+        '200':
+          description: successfully updating SLAs into database when `act=finish`
+        '204':
+          description: successfully uploading SLA file
+        '400':
+          description: Invalid input
+        default:
+          description: Unexpected error
+    get:
+      summary: Status of SLA parsing
+      responses:
+        '200':
+          description: current status of parsing SLA
+        default:
+          description: Unexpected error
+
+
+
+
+
+

@@ -11,7 +11,18 @@ const parser = new xml2js.Parser();
 router._data = {};
 router._sla  = {};
 
-router.post("/uploadRaw/:id", function(req, res, next) {
+function api_response(res, error, sucess){
+   res.setHeader("Content-Type", "application/json");
+   if( error ){
+     console.error( error );
+     res.send({"result": "error", "info": error });
+   } else
+     res.send({"result": "sucess", "info": sucess });
+
+   return res;
+}
+
+router.post("/uploadRaw/:id?", function(req, res, next) {
    const app_id = (req.params.id == undefined? "__app" : req.params.id);
 
    const status = router._data[ app_id ] = {progress: 0, message:"", error: false};
@@ -73,10 +84,26 @@ router.post("/uploadRaw/:id", function(req, res, next) {
 });
 
 //upload SLA files
-router.post("/upload/:id", function(req, res, next) {
+router.post("/upload/:id?", function(req, res, next) {
    //status of processing SLA files
    const app_id = (req.params.id == undefined ? "__app" : req.params.id );
    const status = router._data[ app_id ] = {progress: 0, message:"", error: false};
+   
+   // api: finish uploading
+   const act = req.query.act;
+   if( act === "finish" ) {
+      return insert_to_db(app_id, function(err, db){
+         if( err )
+            api_response(res, err )
+         else
+            api_response(res, null, "sucess")
+      });
+   }
+   else if( act === "cancel" ){
+      return api_response(res, null, "sucess")
+   } else if( act ){
+      return api_response(res, "not support")
+   } 
 
    //handle SLA files uploading
    multer({ dest: '/tmp/' }).single("filename")( req, res, function( err ){
@@ -85,7 +112,7 @@ router.post("/upload/:id", function(req, res, next) {
       const comp_index = parseInt(req.body.component_id);
 
       //first component of the app
-      if( router._sla[ app_id ]  === undefined || comp_index == 0)
+      if( router._sla[ app_id ]  == undefined || comp_index == 0)
          router._sla[ app_id ] = {};
 
       const app_config = router._sla[ app_id ];
@@ -282,6 +309,14 @@ function extract_metrics_json( app_config, index, cb ){
       }
       comp.id = parseInt( comp.id );
 
+      //IP ranges
+      const config = sla.config || [];
+      for( var i=0; i<config.length; i++ ){
+         const conf = config[i];
+         if( conf.config_name == "who.cidr")
+           comp.ip = conf.config_value;
+      }
+     
       //check if existing in app_config.components
       var existed = false;
       for( var i=0; i<app_config.components.length; i++ )
@@ -478,6 +513,58 @@ function extract_metrics( app_config, index, cb ){
    }
 }
 
+// get list of metrics which are selected when ".enable = true"
+function getSelectedMetrics( app_config ){
+	const selectedMetrics = {};
+	
+	//for each component
+	//for( const me of app_config.init_metrics  )
+	app_config.components.forEach( (comp) => {
+		const comp_id = comp.id;
+		
+		const selMetrics = {}
+		//for each metric of the component
+		comp.metrics.forEach( (me) => {
+			//select when the metric is enable
+			if(  me.enable)
+				selMetrics[ me.id ] = {
+					alert    : me.alert,
+					violation: me.violation,
+					unit     : me.unit,
+					enable   : true
+				}
+		});
+		
+		selectedMetrics[ comp_id ] = selMetrics;
+	});
+	
+	return selectedMetrics;
+}
+
+function getSelectedReactions( app_config ){
+	const selectedReactions = {};
+	
+	//for each component
+	//for( const me of app_config.init_metrics  )
+	app_config.components.forEach( (comp) => {
+		const sla       = JSON.parse( comp.sla )
+		const comp_id   = comp.id;
+		const reactions = sla.reactions || [];
+		let index = 0;
+		//for each reaction of the component
+		reactions.forEach( (ract) => {
+			//select when the metric is enable
+			if(  ract.enable){
+				ract.comp_id = comp_id;
+				ract.note    = ract.note || "Initialized by uploaded SLA JSON file";
+				selectedReactions[ ++index ] = ract
+			}
+		});
+	});
+	
+	return selectedReactions;
+}
+
 function insert_to_db( app_id, cb ) {
    const app_config = router._sla[ app_id ];
 
@@ -491,11 +578,13 @@ function insert_to_db( app_id, cb ) {
    router.dbconnector.mdb.collection("metrics").update( {app_id: app_config.id},
          {
             $set : {
-               _id       : app_config.id,
-               app_id    : app_config.id,
-               init_components: app_config.init_components,
-               components: app_config.components,
-               metrics   : app_config.init_metrics,
+               _id              : app_config.id,
+               app_id           : app_config.id,
+               init_components  : app_config.init_components,
+               components       : app_config.components,
+               metrics          : app_config.init_metrics,
+               selectedMetric   : getSelectedMetrics( app_config ),
+               selectedReaction : getSelectedReactions( app_config )
             }
          },
          {upsert : true}, cb);
@@ -532,7 +621,9 @@ function _redirectToMetric( req, res ){
  * @param next
  * @returns
  */
-router.get("/upload/:id", function( req, res, next ){
+
+// legacy: for GUI
+router.get("/upload/:id?", function ( req, res, next ){
    const id     = req.params.id || "__app";
    const status = router._data[ id ];
    const act = req.query.act;
@@ -554,6 +645,5 @@ router.get("/upload/:id", function( req, res, next ){
    res.setHeader("Content-Type", "application/json");
    res.send( status );
 });
-
 
 module.exports = router;

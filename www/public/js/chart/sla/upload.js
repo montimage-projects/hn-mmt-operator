@@ -1,7 +1,7 @@
 var arr = [
-    {
+    /*{
         id: "realtime",
-        title: "Upload SLAs",
+        title: "Upload XML SLAs",
         x: 0,
         y: 0,
         width: 6,
@@ -10,7 +10,7 @@ var arr = [
         userData: {
             fn: "createUploadForm"
         },
-    },{
+    },*/{
         id: "remote",
         title: "Get SLAs from Repository", //a MUSA Dashboard
         x: 6,
@@ -23,7 +23,7 @@ var arr = [
         },
     },{
       id: "nokia",
-      title: "Upload Nokia's SLAs",
+      title: "Upload JSON SLAs",
       x: 0,
       y: 0,
       width: 6,
@@ -117,7 +117,7 @@ var ReportFactory = {
         }
       ]
     };
-    var $container = $("#" + arr[1].id + "-content" );
+    var $container = $("#remote-content" );
 	 $container.append( MMTDrop.tools.createForm( form_config ) ) ;
 
 	 //this function parses information getting from Dashboard to obtain SLA URL then download them
@@ -493,7 +493,7 @@ var ReportFactory = {
         } ]
     }
 
-    var $upload_container = $("#" + arr[0].id + "-content" );
+    var $upload_container = $("#nokia-content" );
     $upload_container.append( MMTDrop.tools.createForm( form_config( 0 ) ) ) ;
     var com = 0;
 
@@ -585,7 +585,7 @@ var ReportFactory = {
               children: [{
                   type : "<div>",
                   attr : {
-                    text : "Select Nokia's SLA to upload",
+                    text : "Select SLA file to upload",
                     style: "font-weight: bold; text-align: center; margin-bottom: 20px",
                   }
                 },{
@@ -698,7 +698,7 @@ var ReportFactory = {
         } ]
     }
 
-    var $upload_container = $("#" + arr[2].id + "-content" );
+    var $upload_container = $("#nokia-content" );
     $upload_container.append( MMTDrop.tools.createForm( form_config( 0 ) ) ) ;
     var com = 0;
 

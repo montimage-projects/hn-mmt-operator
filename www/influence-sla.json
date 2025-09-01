@@ -1,0 +1,121 @@
+{
+    "config": [
+        {
+            "config_name": "performanceMonitoring.monitoringFrequency",
+            "config_value": "second"
+        },
+        {
+            "config_name": "when.activationDate",
+            "config_value": "1744018345703"
+        },
+        {
+            "config_name": "when.expirationDate",
+            "config_value": "1744018347703"
+        },
+        {
+            "config_name": "who.cidr",
+            "config_value": "0.0.0.0/0"
+        }
+    ],
+    "metrics": [
+        {
+            "name": "attack.DDoS",
+            "title": "DDoS Attack Detected in the Network",
+            "alert_value": 0.5,
+            "violation_value": 0.7,
+            "enable": true
+        },
+        {
+            "name": "dlTput.minDlTputRequirement",
+            "title": "Minimum Downlink Throughput that needs to be guaranteed",
+            "alert_value": 1.5,
+            "violation_value": 1.0,
+            "unit": "Mbps",
+            "enable": true
+        },
+        {
+            "name": "dlTput.maxDlTputPerSlice",
+            "title": "Maximum Downlink throughput counting all simultaneous users",
+            "alert_value": 0.2,
+            "violation_value": 0.5,
+            "unit": "Gbps",
+            "enable": true
+        },
+        {
+            "name": "ulTput.maxUlTputPerSlice",
+            "title": "Maximum Uplink throughput counting all simultaneous users",
+            "alert_value": 0.1,
+            "violation_value": 0.3,
+            "unit": "Gbps",
+            "enable": true
+        },
+        {
+            "name": "dlTput.maxTputVariation",
+            "title": "Max DL Throughput Variation",
+            "alert_value": 10,
+            "violation_value": 20,
+            "unit": "percent",
+            "enable": false
+        },
+        {
+            "name": "ulTput.maxTputVariation",
+            "title": "Max UL Throughput Variation",
+            "alert_value": 5,
+            "violation_value": 10,
+            "unit": "percent",
+            "enable": false
+        },
+        {
+            "name": "latency.maxE2ELatency",
+            "title": "Max E2E latency",
+            "alert_value": 200,
+            "violation_value": 2000,
+            "unit": "ms",
+            "enable": false
+        },
+        {
+            "name": "latency.lowJitter",
+            "title": "Low jitter required",
+            "alert_value": false,
+            "violation_value": true,
+            "enable": true
+        },
+        {
+            "name": "dim.maxPDUsessions",
+            "title": "Max number of simultaneous user sessions",
+            "alert_value": 100,
+            "violation_value": 1000,
+            "enable": false
+        },
+        {
+            "name": "dim.numberOfTerminals",
+            "title": "Max number of devices",
+            "alert_value": 10,
+            "violation_value": 100,
+            "enable": false
+        }
+    ],
+    "reactions": [
+        {
+           "conditions": { 
+              "dlTput.minDlTputRequirement" : [ "alert" ], 
+              "dlTput.maxDlTputPerSlice" : [ "alert", "violate" ] 
+           }, 
+           "actions" : [ "reroute_packets" ],
+           "enable"  : true,
+           "note"    : "Reroute packets when required throughput is not satisfied"
+        },{
+           "conditions": { 
+              "attack.DDoS" : [ "alert", "violate" ]
+           }, 
+           "actions" : [ "isolate_devices" ],
+           "enable": true
+        },{
+           "conditions": { 
+              "attack.DDoS" : [ "violation" ]
+           }, 
+           "actions" : [ "reset_devices" ],
+           "enable": false
+        }
+    ]
+}

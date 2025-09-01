@@ -791,11 +791,16 @@ var MongoConnector = function () {
 
 		for( var i in self.dataCache )
 			self.dataCache[i].clear();
-
-		self.mdb.dropDatabase(function (err, doc) {
-			console.log("drop database!");
-			cb( err );
-		});
+		try{
+			self.mdb.dropDatabase(function (err, doc) {
+				console.log("drop database!");
+				cb( err );
+			});
+		} catch(err){
+			console.error(err)
+			if(cb)
+				cb(err)
+		}
 	};
 
 
