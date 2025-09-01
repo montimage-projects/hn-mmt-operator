@@ -47,6 +47,7 @@ function _raiseMessage( action_name, msg ){
 
 //Check on reaction on DB
 function _checkReaction( reaction ){
+	console.log("checking reaction: " + JSON.stringify( reaction ));
 	/*
 	reaction = {
 				"app_id": "xxx",

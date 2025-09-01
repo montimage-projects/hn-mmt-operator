@@ -39,6 +39,7 @@ var MongoConnector = function () {
 			console.logStdout("Cannot connect to Database");
 			process.exit( 1 );
 		}
+		console.log("Connected successfully to MongoDB");
 		
 		self.mdb       = db;
 		self.appList   = new AppList( db );

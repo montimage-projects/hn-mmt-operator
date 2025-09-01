@@ -164,11 +164,12 @@ if (config.isSLA) {
 	*/
 
 	//module to verify preodically if the current data are violdated
-	//const engine = require("./routes/musa/violation_check_engine.js");
-	//engine.start( pub_sub, dbconnector );
+	const check_engine = require("./routes/musa/violation_check_engine.js");
+	check_engine.start( pub_sub, dbconnector );
+	const react_engine = require("./routes/musa/reaction_manager.js");
+	react_engine.start( pub_sub, dbconnector );
 	//app.use("/musa/dummy", engine.router );
 	/*
-	  //require("./routes/musa/reaction_manager.js").start( pub_sub, dbconnector );
 
 		const musaStatus = require("./routes/musa/status.js");
 		musaStatus.pub_sub     = pub_sub;

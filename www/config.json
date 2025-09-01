@@ -99,14 +99,14 @@
 	"modules_config": {
 		"sla": {
 			"active_check_period": 5,
-			"violation_check_period": 60,
+			"violation_check_period": 10,
 			"reaction_check_period": 5,
 			"init_components": [
 				  {
 					"id": "1",
 					"ip": "192.168.1.1",
 					"metrics": [],
-					"title": "INFLUENCE5G"
+					"title": "INFLUENCE5G IoT"
 				}
 			],
 			"init_metrics": [

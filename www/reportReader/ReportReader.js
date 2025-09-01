@@ -115,6 +115,7 @@ function Reader(){
       process._children.push( ret );
 
       // If this is for the INFLUENCE5G, start the violation detector
+      /*
       if (config?.modules_config?.sla?.init_components?.some(item => item.title === "INFLUENCE5G")) {
          //this process detcts violations from Database
          let ret = child_process( __dirname + "/violationDetector.js", [],
@@ -122,7 +123,7 @@ function Reader(){
          ).start();
          process._children.push( ret );
       }
-
+      */
    }
 }
 
