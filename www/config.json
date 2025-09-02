@@ -21,7 +21,7 @@
 		"nb_readers": 16
 	},
 	"input_mode": "kafka",
-	"probe_analysis_mode": "offline",
+	"probe_analysis_mode": "online",
 	"local_network": [
 		{
 			"ip": "192.168.0.0",
@@ -99,7 +99,7 @@
 	"modules_config": {
 		"sla": {
 			"active_check_period": 5,
-			"violation_check_period": 10,
+			"violation_check_period": 5,
 			"reaction_check_period": 5,
 			"init_components": [
 				  {

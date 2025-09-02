@@ -524,7 +524,9 @@ var ReportFactory = {
          }
 
          MMTDrop.tools.gotoURL('/chart/sla/' + name +
-            MMTDrop.tools.getQueryString(["app_id"], "&probe_id=" + probe_id + "&alert=" + alert_thr + "&violation=" + violation_thr + extra_url));
+            MMTDrop.tools.getQueryString(["app_id"], 
+                      //"&probe_id=" + probe_id +  //2 Sep 2025: disable probe filtre to avoid mismatch probe_id as Influence has only 1 probe
+                      "&alert=" + alert_thr + "&violation=" + violation_thr + extra_url));
       }
    },
 

@@ -1,20 +1,40 @@
 const express = require('express');
 const router  = express.Router();
 
-const config   = require("../../libs/config");
-const constant = require("../../libs/constant.js");
+const config      = require("../../libs/config");
+const constant    = require("../../libs/constant.js");
+const dataAdaptor = require('../../libs/dataAdaptor');
 
-const CHECH_AVG_INTERVAL = 60*1000; //1minute
 
+const COL  = dataAdaptor.StatsColumnId;
 
+var CHECK_AVG_INTERVAL = 60*1000; //1minute
 
 //global variable for this module
 var dbconnector = null;
 var publisher   = {};
 
+
+function _createSecurityAlert( probe_id, source, timestamp, property_id, verdict, type, description, history ){
+   const msg = [10, probe_id, source, timestamp, property_id, verdict, type, description, history ];
+   var obj = {};
+   for( var i in msg )
+      obj[i] = msg[i];
+
+   dbconnector._updateDB( "security", "insert", obj, function( err, data ){
+      if( err )
+         return console.error( err );
+      //console.log( data );
+   });
+}
+
 //type: violation | alert
 function _raiseMessage( timestamp, type, app_id, com_id, metric_id, threshold, value, priority ){
-   value = Math.round(value * 100)/100;
+   if(! isNaN(value) )
+     value = Math.round(value * 100)/100;
+   else
+     value = JSON.stringify( value );
+
    const msg = [timestamp, app_id, com_id, metric_id, type, priority, threshold, value ];
    var obj = {};
    for( var i in msg )
@@ -178,14 +198,144 @@ function _checkGtpLimitation( metric, m, app, com ){
    //nothing to do   
 }
 
-function perform_check(){
+function _checkMaxThroughputPerSlice( metric, m, app, com ){
+   //nothing to do
+	const ipRange = com.ip;
+	if( !ipRange )
+		return console.log("not found IP range");
+		
+	const now = (new Date()).getTime();
+/*
+	dbconnector._queryDB( "availability_real", "aggregate", [
+		{"$match"  : {"1": com.id,"3":{"$gte": (now - CHECH_AVG_INTERVAL),"$lt":now }}},
+		{"$group"  : {"_id": "$1", "avail_count": {"$sum": "$5"}, "check_count": {"$sum" : "$6"}}}
+		], 
+		function( err, result){
+			if( err )
+				return console.error( err );
+			if( result.length  == 0 ) 
+				return;
+			//result = [ { _id: 30, avail_count: 4, check_count: 7 } ]
+			result = result[0];
+		}, false);
+*/
+}
 
+// Calculate the range of IPs in a CIDR notation
+const calculateCidrRange = cidr => {
+  const ip4ToInt = ip => ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+  const intToIp4 = int =>
+    [(int >>> 24) & 0xff, (int >>> 16) & 0xff, (int >>> 8) & 0xff, int & 0xff].join('.');
+  const [range, bits = 32] = cidr.split('/');
+  const mask = ~(2 ** (32 - bits) - 1);
+  const answer = [intToIp4(ip4ToInt(range) & mask), intToIp4(ip4ToInt(range) | ~mask)];
+  return [ip4ToInt(answer[0]), ip4ToInt(answer[1])]
+};
+
+function getBandwidth( bytes ){
+	return bytes * 8 / CHECK_AVG_INTERVAL;
+}
+
+function convertToBits(value, unit) {
+	switch (unit) {
+		case "Kbps":
+			return value * 1000;
+		case "Mbps":
+			return value * 1000000;
+		case "Gbps":
+			return value * 1000000000;
+	}
+}
+// max available bandwidth
+function getMaxAvailableBandwidthBps( com ){
+	const defaultBw = 10*1000*1000; //10 Mbps
+	const dlMetric = com.metrics.find( (me) => me.name == "dlTput.maxDlTputPerSlice");
+	const ulMetric = com.metrics.find( (me) => me.name == "ulTput.maxUlTputPerSlice");
+
+	const max = Math.max(defaultBw, convertToBits(dlMetric.violation, dlMetric.unit),
+		convertToBits(ulMetric.violation, ulMetric.unit));
+		
+	console.log("max avail bandwidth: " + max );
+	return max;
+}
+
+function _checkDDoS( metric, m, app, com ){
+   //nothing to do
+	const ipRange = com.ip;
+	if( !ipRange )
+		return console.log("not found IP range");
+	
+	const [cidrStart, cidrEnd] = calculateCidrRange( ipRange );
+	const now = (new Date()).getTime();
+
+
+	const match = {};
+	//in checking period
+	match[COL.TIMESTAMP] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now }
+	// IP in the list
+	match["ip_src"] = { "$gte": cidrStart, "$lte": cidrEnd }
+	const groupBy = {"_id": {}};
+	// group by ip_src
+	[COL.IP_SRC].forEach( (e) => groupBy["_id"][e] = "$"+e);
+	// sum by
+	[COL.ACTIVE_FLOWS, COL.DATA_VOLUME].forEach( (e) => groupBy[e] = {"$sum" : "$"+e} );
+	
+	// count
+	[COL.IP_DST].forEach( (e) => groupBy[e] = {"$sum" : 1} );
+	
+	dbconnector._queryDB( "data_link_real", "aggregate", [
+		{"$match"  : match},
+		{"$group"  : groupBy}
+		], 
+		function( err, result){
+			if( err )
+				return console.error( err );
+			if( result.length  == 0 ) 
+				return;
+			console.log(result);
+			//result = [ { '7': 1321, '8': 295534, _id: { '18': '10.0.2.2' } } ]
+			result.forEach( function(row){
+				const ip         = row["_id"][COL.IP_SRC];
+				const consumedBw = getBandwidth(row[COL.DATA_VOLUME] );
+				const availBw    = getMaxAvailableBandwidthBps( com );
+				// 1. does it consume all bandwidth ?
+				if( consumedBw <= availBw * 0.9  )
+					return;
+				
+				// 2. has it a lot of flows ?
+				if( row[COL.ACTIVE_FLOWS] <= 100 )
+					return;
+				
+				// 3. has it a lot of IP destination
+				if( row[COL.IP_DST] <= 10 )
+					return;
+				
+				// until here we can conclude DDoS
+				
+				// create a security alert to show it in "security" dashboard
+				const val = [["ip.src", ip], 
+						["consumed_bw", consumedBw], 
+						["percent_bw",  Math.round(consumedBw*100.0/availBw)], 
+						["nb_flows", row[COL.ACTIVE_FLOWS] ], 
+						["nb_targets", row[COL.IP_DST] ]
+				];
+				console.log("=> DDoS detected ", val);
+				_createSecurityAlert(app.app_id, "operator", now, metric.id, "detected", "attack", metric.title, 
+						{"event_1": {"timestamp": now, "description": "detected by SLA viloation checking engine", "attributes": val}});
+
+				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.id, m.violation, val, m.priority );
+			})
+		}, false);
+}
+
+function perform_check(){
+   console.log(" checking SLA ...");
    //get a list of applications defined in metrics collections
    dbconnector._queryDB("metrics", "find", [], function( err, apps){
       if( err )
          return console.error( err );
       var checked = {};
-
+      console.log(`got ${apps.length} app to check SLA`);
       //for each application
       for( var i in apps ){
          var app = apps[i];
@@ -242,7 +392,7 @@ function perform_check(){
                if( m.alert == "" && m.violation == "" )
                   continue;
 
-               console.log("checking metric " + metric.name);
+               console.log("Checking metric " + metric.name);
                
                switch( metric.name ){
                   //musa project
@@ -259,12 +409,18 @@ function perform_check(){
                   case "limit_gtp":
                      _checkGtpLimitation( metric, m, app, com );
                      break;
+
                   //influence
+                  case "attack.DDoS":
+                     _checkDDoS( metric, m, app, com );
+                     break;
+
                   case "dlTput.minDlTputRequirement":
                      break;
 
                   case "dlTput.maxDlTputPerSlice":
                   case "ulTput.maxUlTputPerSlice":
+                     _checkMaxThroughputPerSlice( metric, m, app, com );
                      break;
 
                   case "dlTput.maxTputVariation":
@@ -294,6 +450,14 @@ function perform_check(){
 
 
 function start( pub_sub, _dbconnector ){
+	if( ! config.sla )
+		return console.log("Not found SLA in config");
+
+	if (config.sla.violation_check_period < 5){
+		console.log("Set violation_check_period = 10 seconds");
+		config.sla.violation_check_period = 10
+	}
+
    console.log("Start SLA viloation checking engine");
    //donot check if redis/kafka is not using
    //if( pub_sub == undefined ){
@@ -308,9 +472,9 @@ function start( pub_sub, _dbconnector ){
       if( pub_sub )
          publisher = pub_sub.createClient("producer", "musa-violation-checker");
 
-      setInterval( perform_check, 
-            config.sla.violation_check_period*1000 //each 5 seconds
-      );
+      CHECK_AVG_INTERVAL = config.sla.violation_check_period*1000; //each X seconds
+      console.log("start SLA checking each " + config.sla.violation_check_period + " seconds");
+      setInterval( perform_check, CHECK_AVG_INTERVAL );
    });
 }
 

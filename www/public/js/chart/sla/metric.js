@@ -410,6 +410,7 @@ var ReportFactory = {
                   }
 
                   // only allowing ML or the rest to be triggered
+/*
                   const mlId = metrics.find(item => item.name === "attack.DDoS")?.id;
                   const mlIdSearch = mlId?.replace(".", "\\.");
                   $(".onoffswitch-checkbox").change(function() {
@@ -427,6 +428,7 @@ var ReportFactory = {
                            MMTDrop.alert.alert("If any other metric is enabled, ML Attack Detection will be disabled.");
                         }
                   });
+*/
             }
 
          }//end load the previously selected values to the form
@@ -508,7 +510,9 @@ function _convertStringToThreshold( str ){
       .replace("==",  '"$eq" :')
       .replace("=",  '"$eq" :');
    try{
-      expr = JSON.parse( "{" + expr + "}" );
+      // convert to MongoDB expr only if str contains the supported operators
+      if( expr != str )
+         expr = JSON.parse( "{" + expr + "}" );
    }catch( err ){
       MMTDrop.alert.error( "Incorrect expression: <pre>"+ str +"</pre>");
       MMTDrop.alert.alert("Support currently only 6 operators: <pre>>=, <=, >, <, !=, ==</pre>");

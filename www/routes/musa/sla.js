@@ -316,7 +316,9 @@ function extract_metrics_json( app_config, index, cb ){
          if( conf.config_name == "who.cidr")
            comp.ip = conf.config_value;
       }
-     
+      if( ! comp.ip )
+         comp.ip = "0.0.0.0/0"; // all IPv4
+
       //check if existing in app_config.components
       var existed = false;
       for( var i=0; i<app_config.components.length; i++ )
@@ -531,7 +533,8 @@ function getSelectedMetrics( app_config ){
 					alert    : me.alert,
 					violation: me.violation,
 					unit     : me.unit,
-					enable   : true
+					enable   : true,
+					priority : "MEDIUM"
 				}
 		});
 		
