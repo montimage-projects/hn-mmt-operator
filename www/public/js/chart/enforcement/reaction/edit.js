@@ -138,7 +138,7 @@ var ReportFactory = {
                   var checked = false;
                   var x = reactionObj.conditions[me.name];
                   if( Array.isArray( x ))
-                     checked = (x.indexOf( "violate" ) != -1);
+                     checked = (x.indexOf( "violation" ) != -1);
 
                   row.children.push({
                      type     : "<td>",
@@ -180,11 +180,11 @@ var ReportFactory = {
                      }]
                   });
 
-                  //violate
+                  //violation
                   var checked = false;
                   var x = reactionObj.conditions[me.name];
                   if( Array.isArray( x ))
-                     checked = (x.indexOf( "violate" ) != -1);
+                     checked = (x.indexOf( "violation" ) != -1);
 
                   row.children.push({
                      type     : "<td>",
@@ -197,18 +197,18 @@ var ReportFactory = {
                         children : [{
                            type    : "<input>",
                            attr    : {
-                              id            : "violate-" + me.name,
+                              id            : "violation-" + me.name,
                               class         : "onoffswitch-checkbox react-conditions",
                               type          : "checkbox",
                               "data-metric" : me.name,
-                              "data-type"   : "violate",
+                              "data-type"   : "violation",
                               checked       :  checked
                            }
                         },{
                            type    : "<label>",
                            attr    : {
                               class   : "onoffswitch-label",
-                              for     : "violate-" + me.name,
+                              for     : "violation-" + me.name,
                            },
                            children  : [{
                               type  : "<span>",
@@ -427,11 +427,11 @@ var ReportFactory = {
                            $("#conditions-div").scrollToChild( "#alert-" + cond );
                         }
                      }
-                     if( val.violate ){
+                     if( val.violation ){
                         //check whether the current form contains one of the conditions
-                        count = $("#violate-" + cond).prop("checked", true ).length;
+                        count = $("#violation-" + cond).prop("checked", true ).length;
                         if( count > 0 ){
-                           text.push( 'violate' );
+                           text.push( 'violation' );
 
                            $("#conditions-div").scrollToChild( "#tr-" + cond );
                         }

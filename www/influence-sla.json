@@ -99,17 +99,18 @@
         {
            "conditions": { 
               "dlTput.minDlTputRequirement" : [ "alert" ], 
-              "dlTput.maxDlTputPerSlice" : [ "alert", "violate" ] 
+              "dlTput.maxDlTputPerSlice" : [ "alert", "violation" ] 
            }, 
            "actions" : [ "reroute_packets" ],
            "enable"  : true,
            "note"    : "Reroute packets when required throughput is not satisfied"
         },{
            "conditions": { 
-              "attack.DDoS" : [ "alert", "violate" ]
+              "attack.DDoS" : [ "alert", "violation" ]
            }, 
            "actions" : [ "isolate_devices" ],
-           "enable": true
+           "enable": true,
+           "note": "Block this device from the Network"
         },{
            "conditions": { 
               "attack.DDoS" : [ "violation" ]

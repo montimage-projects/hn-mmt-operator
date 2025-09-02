@@ -332,7 +332,7 @@ function extract_metrics_json( app_config, index, cb ){
       for (var i=0; i<uploadedMetrics.length; i++) {
          const metric = uploadedMetrics[i];
          const metricData = {
-            id          : comp.id + "." + (total+1),
+            id          : metric.name,//comp.id + "." + (total+1),
             name        : metric.name,
             title       : metric.title,
             // TODO: retrieve from Nokia MongoDB
@@ -557,9 +557,10 @@ function getSelectedReactions( app_config ){
 		//for each reaction of the component
 		reactions.forEach( (ract) => {
 			//select when the metric is enable
-			if(  ract.enable){
-				ract.comp_id = comp_id;
-				ract.note    = ract.note || "Initialized by uploaded SLA JSON file";
+			if(  ract.enable ){
+				ract.comp_id   = comp_id;
+				ract.priority  = ract.priority || "MEDIUM";
+				ract.note      = ract.note || "Initialized by uploaded SLA JSON file";
 				selectedReactions[ ++index ] = ract
 			}
 		});

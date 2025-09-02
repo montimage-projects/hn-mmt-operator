@@ -79,7 +79,7 @@ var ReportFactory = {
             group = {
                "_id": { "1": "$1", "2": "$2", "3": "$3" }, //group by app_id, comp_id and metric_id
                "alert": { "$sum": { $cond: { if: { $eq: [TYPE, "alert"] }, then: 1, else: 0 } } },
-               "violate": { "$sum": { $cond: { if: { $eq: [TYPE, "violation"] }, then: 1, else: 0 } } },
+               "violation": { "$sum": { $cond: { if: { $eq: [TYPE, "violation"] }, then: 1, else: 0 } } },
                "app_id": { "$first": "$1" },
                "comp_id": { "$first": "$2" },
                "me_id": { "$first": "$3" },
@@ -386,7 +386,7 @@ var ReportFactory = {
                         type: "<span>",
                         attr: {
                            "class": "alerts",
-                           "data-type": "violate",
+                           "data-type": "violation",
                            "data-compid": comp.id,
                            "data-metricid": me.id,
                            "data-metricname": me.name,
@@ -884,10 +884,10 @@ function _getActions(reaction_id) {
 }
 
 //reaction: {"comp_id": "30",
-//              "conditions": { "availability": [  "violate" ], "incident": [  "alert" ]},
+//              "conditions": { "availability": [  "violation" ], "incident": [  "alert" ]},
 //              "actions": [ "filtre_port", "restart_apache"],"priority": "MEDIUM","note": "note","enable": true}
-//data    : [{"alert":0,"violate":63,"app_id":"__app","comp_id":1,"me_id":"1"},
-//             {"alert":0,"violate":63,"app_id":"__app","comp_id":30,"me_id":"1"}
+//data    : [{"alert":0,"violation":63,"app_id":"__app","comp_id":1,"me_id":"1"},
+//             {"alert":0,"violation":63,"app_id":"__app","comp_id":30,"me_id":"1"}
 //            ]
 function _verifyCondition(reaction, data) {
    const conditions = reaction.conditions;
@@ -910,7 +910,7 @@ function _verifyCondition(reaction, data) {
                //one cond
                (cond.length == 1 && o[cond[0]] > 0)
                ||
-               //having either "alert" or "violate"
+               //having either "alert" or "violation"
                (cond.length == 2 && (o[cond[0]] > 0 || o[cond[1]] > 0))
             )
          ) {

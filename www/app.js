@@ -168,6 +168,7 @@ if (config.isSLA) {
 	check_engine.start( pub_sub, dbconnector );
 	const react_engine = require("./routes/musa/reaction_manager.js");
 	react_engine.start( pub_sub, dbconnector );
+
 	//app.use("/musa/dummy", engine.router );
 	/*
 

@@ -29,6 +29,7 @@ function _createSecurityAlert( probe_id, source, timestamp, property_id, verdict
 }
 
 //type: violation | alert
+// keep metric_id as legacy reason
 function _raiseMessage( timestamp, type, app_id, com_id, metric_id, threshold, value, priority ){
    if(! isNaN(value) )
      value = Math.round(value * 100)/100;
@@ -271,7 +272,7 @@ function _checkDDoS( metric, m, app, com ){
 
 	const match = {};
 	//in checking period
-	match[COL.TIMESTAMP] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now }
+	//TODO match[COL.TIMESTAMP] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now }
 	// IP in the list
 	match["ip_src"] = { "$gte": cidrStart, "$lte": cidrEnd }
 	const groupBy = {"_id": {}};
@@ -299,6 +300,7 @@ function _checkDDoS( metric, m, app, com ){
 				const consumedBw = getBandwidth(row[COL.DATA_VOLUME] );
 				const availBw    = getMaxAvailableBandwidthBps( com );
 				// 1. does it consume all bandwidth ?
+/*
 				if( consumedBw <= availBw * 0.9  )
 					return;
 				
@@ -309,7 +311,7 @@ function _checkDDoS( metric, m, app, com ){
 				// 3. has it a lot of IP destination
 				if( row[COL.IP_DST] <= 10 )
 					return;
-				
+*/
 				// until here we can conclude DDoS
 				
 				// create a security alert to show it in "security" dashboard
@@ -323,13 +325,13 @@ function _checkDDoS( metric, m, app, com ){
 				_createSecurityAlert(app.app_id, "operator", now, metric.id, "detected", "attack", metric.title, 
 						{"event_1": {"timestamp": now, "description": "detected by SLA viloation checking engine", "attributes": val}});
 
-				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.id, m.violation, val, m.priority );
+				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.name, m.violation, val, m.priority);
 			})
 		}, false);
 }
 
 function perform_check(){
-   console.log(" checking SLA ...");
+   console.log(" checking SLA violation ...");
    //get a list of applications defined in metrics collections
    dbconnector._queryDB("metrics", "find", [], function( err, apps){
       if( err )
@@ -453,12 +455,12 @@ function start( pub_sub, _dbconnector ){
 	if( ! config.sla )
 		return console.log("Not found SLA in config");
 
-	if (config.sla.violation_check_period < 5){
+	if (config.sla.violation_check_period < 10){
 		console.log("Set violation_check_period = 10 seconds");
 		config.sla.violation_check_period = 10
 	}
 
-   console.log("Start SLA viloation checking engine");
+   console.log("Start SLA violation checking engine");
    //donot check if redis/kafka is not using
    //if( pub_sub == undefined ){
    //   console.error("This work only for kafka/redis bus");
@@ -473,7 +475,7 @@ function start( pub_sub, _dbconnector ){
          publisher = pub_sub.createClient("producer", "musa-violation-checker");
 
       CHECK_AVG_INTERVAL = config.sla.violation_check_period*1000; //each X seconds
-      console.log("start SLA checking each " + config.sla.violation_check_period + " seconds");
+      console.log("start SLA violation checking each " + config.sla.violation_check_period + " seconds");
       setInterval( perform_check, CHECK_AVG_INTERVAL );
    });
 }

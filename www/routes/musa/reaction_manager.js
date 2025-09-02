@@ -1,15 +1,22 @@
 const CONSTANT = require("../../libs/constant.js");
 
+const config      = require("../../libs/config");
+const constant    = require("../../libs/constant.js");
+const dataAdaptor = require('../../libs/dataAdaptor');
+
+
+//const METRIC_COL  = dataAdaptor.StatsColumnId;
+
 //interval allowing to select the alerts to be checked
-const CHECH_AVG_INTERVAL = 5*60*1000; //1 minute
+let CHECK_AVG_INTERVAL = 5*60*1000; //1 minute
 
 
 //col id of element in metric_alert collection
-const COL = {
+const METRIC_COL = {
 		TIMESTAMP: 0, 
 		APP_ID: 1, 
 		COM_ID: 2, 
-		METRIC_ID: 3, 
+		METRIC_NAME: 3, 
 		TYPE: 4, 
 		PRIORITY: 5, 
 		THRESHOLD: 6, 
@@ -18,7 +25,7 @@ const COL = {
 //global variable for this module
 var dbconnector = {};
 var publisher   = {};
-const REACTORS  = require("../../libs/config.js").sla.actions;
+const REACTORS  = {};
 
 
 //raise message on a special channel of pub-sub
@@ -36,7 +43,9 @@ function _raiseMessage( action_name, msg ){
 		publisher.publish( reaction.channel_name, JSON.stringify( msg ) );
 
 	//add reaction at the end of message
-	obj[ msg.length ] = reaction;
+	obj[ msg.length ] = JSON.stringify(reaction);
+	
+	console.log(JSON.stringify(obj))
 	
 	dbconnector._updateDB( "metrics_reactions", "insert", obj, function( err, data ){
 		if( err )
@@ -45,17 +54,18 @@ function _raiseMessage( action_name, msg ){
 	});
 }
 
+
 //Check on reaction on DB
 function _checkReaction( reaction ){
-	console.log("checking reaction: " + JSON.stringify( reaction ));
+	console.log("checking SLA reaction: " + JSON.stringify( reaction ));
 	/*
 	reaction = {
 				"app_id": "xxx",
 				"comp_id":"30",
-				"conditions":{"incident":["alert","violate"]},
+				"conditions":{"incident":["alert","violation"]},
 				"actions":["down_5min"],
 				"priority":"MEDIUM",
-				"note":"Recommendation: when having incident (alert or violate) then perform \"down_5min\" action",
+				"note":"Recommendation: when having incident (alert or violation) then perform \"down_5min\" action",
 				"enable":true,
 				"id":"0886f1dd-6424-4f52-8ad1-ff4547c5a301"
 			}
@@ -63,18 +73,22 @@ function _checkReaction( reaction ){
 	
     const now = (new Date()).getTime();
     const $match = {};
-    $match[ COL.TIMESTAMP ] = {"$gte": (now - CHECH_AVG_INTERVAL),"$lt":now };
-    $match[ COL.APP_ID ]    = reaction.app_id;
-    $match[ COL.COM_ID ]    = reaction.comp_id;
+    //$match[ METRIC_COL.TIMESTAMP ] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now };
+    if( reaction.app_id )
+       $match[ METRIC_COL.APP_ID ]    = reaction.app_id;
+    if( reaction.comp_id )
+       $match[ METRIC_COL.COM_ID ]    = reaction.comp_id;
+
     $match[ "$and" ]        = [];  //conditions
     
     for( var cond in reaction.conditions ){
     		var obj = {};
-    		obj[ COL.METRIC_ID ] = cond;
-    		obj[ COL.TYPE ]      = {"$in" : reaction.conditions[ cond ] }; //["alert", "violate"]
+    		obj[ METRIC_COL.METRIC_NAME ] = cond;
+    		obj[ METRIC_COL.TYPE ]      = {"$in" : reaction.conditions[ cond ] }; //["alert", "violation"]
     		$match["$and"].push( obj );
     }
     
+	console.log("$match: ", JSON.stringify($match));
 	dbconnector._queryDB( "metrics_alerts", "aggregate", [
 		{"$match"  : $match},
 	], function( err, result){
@@ -86,7 +100,10 @@ function _checkReaction( reaction ){
 		result = result[0];
 		
 		for( var i=0; i<reaction.actions.length; i++ )
-			_raiseMessage( reaction.actions[i], [(new Date()).getTime(), reaction.app_id, reaction.comp_id, reaction.id, reaction.actions[i], "xxx"]);
+			_raiseMessage( reaction.actions[i], 
+				[(new Date()).getTime(), //timestamp
+				102, //message type
+				 reaction.app_id, reaction.comp_id, reaction.id, reaction.actions[i], reaction.note]);
 		
 		//console.log( result );
 	}, false);
@@ -134,20 +151,34 @@ function perform_check(){
 
 
 function start( pub_sub, _dbconnector ){
-	//donot check if redis/kafka is not using
-	if( pub_sub == undefined ){
-		console.error("No pub-sub is defined");
-		return;
+	if( ! config.sla )
+		return console.log("Not found SLA in config");
+
+	if (config.sla.reaction_check_period < 10){
+		console.log("Set reaction_check_period = 10 seconds");
+		config.sla.reaction_check_period = 10
 	}
+
+	console.log("Start SLA reaction checking engine");
+
+	//donot check if redis/kafka is not using
+	//if( pub_sub == undefined ){
+	//	console.error("No pub-sub is defined");
+	//	return;
+	//}
+	for( const react in config.sla.actions )
+		REACTORS[react] = config.sla.actions[ react ];
 
 	//when db is ready
 	_dbconnector.onReady( function(){
 		dbconnector = _dbconnector;
-		publisher   = pub_sub.createClient();
+		if( pub_sub )
+			publisher = pub_sub.createClient();
 
-		setInterval( perform_check, 
-				_mmt.config.sla.reaction_check_period*1000 //each 5 seconds
-		);
+		
+		CHECK_AVG_INTERVAL = config.sla.reaction_check_period * 1000; //each X seconds
+		console.log("start SLA reaction checking each " + config.sla.reaction_check_period + " seconds");
+		setInterval(perform_check, CHECK_AVG_INTERVAL);
 	});
 }
 
