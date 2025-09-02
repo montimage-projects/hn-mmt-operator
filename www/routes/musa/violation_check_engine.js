@@ -14,6 +14,10 @@ var CHECK_AVG_INTERVAL = 60*1000; //1minute
 var dbconnector = null;
 var publisher   = {};
 
+const TIMESTAMP = {
+	start: 0, 
+	end  : 0
+}
 
 function _createSecurityAlert( probe_id, source, timestamp, property_id, verdict, type, description, history ){
    const msg = [10, probe_id, source, timestamp, property_id, verdict, type, description, history ];
@@ -30,13 +34,18 @@ function _createSecurityAlert( probe_id, source, timestamp, property_id, verdict
 
 //type: violation | alert
 // keep metric_id as legacy reason
-function _raiseMessage( timestamp, type, app_id, com_id, metric_id, threshold, value, priority ){
+function _raiseMessage( timestamp, type, app_id, com_id, metric_id, threshold, value, priority, other ){
    if(! isNaN(value) )
      value = Math.round(value * 100)/100;
    else
      value = JSON.stringify( value );
 
-   const msg = [timestamp, app_id, com_id, metric_id, type, priority, threshold, value ];
+   if(other)
+     other = JSON.stringify(other)
+   else
+     other = '{}'
+
+   const msg = [timestamp, app_id, com_id, metric_id, type, priority, threshold, value, other ];
    var obj = {};
    for( var i in msg )
       obj[i] = msg[i];
@@ -199,38 +208,21 @@ function _checkGtpLimitation( metric, m, app, com ){
    //nothing to do   
 }
 
-function _checkMaxThroughputPerSlice( metric, m, app, com ){
-   //nothing to do
-	const ipRange = com.ip;
-	if( !ipRange )
-		return console.log("not found IP range");
-		
-	const now = (new Date()).getTime();
-/*
-	dbconnector._queryDB( "availability_real", "aggregate", [
-		{"$match"  : {"1": com.id,"3":{"$gte": (now - CHECH_AVG_INTERVAL),"$lt":now }}},
-		{"$group"  : {"_id": "$1", "avail_count": {"$sum": "$5"}, "check_count": {"$sum" : "$6"}}}
-		], 
-		function( err, result){
-			if( err )
-				return console.error( err );
-			if( result.length  == 0 ) 
-				return;
-			//result = [ { _id: 30, avail_count: 4, check_count: 7 } ]
-			result = result[0];
-		}, false);
-*/
-}
 
+// convert IPv4 string to a number
+const ip4ToInt = ip => ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+
+// convert a number of 4 byte to an IP string
+const intToIp4 = int =>
+	[(int >>> 24) & 0xff, (int >>> 16) & 0xff, (int >>> 8) & 0xff, int & 0xff].join('.');
+	
 // Calculate the range of IPs in a CIDR notation
-const calculateCidrRange = cidr => {
-  const ip4ToInt = ip => ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
-  const intToIp4 = int =>
-    [(int >>> 24) & 0xff, (int >>> 16) & 0xff, (int >>> 8) & 0xff, int & 0xff].join('.');
-  const [range, bits = 32] = cidr.split('/');
-  const mask = ~(2 ** (32 - bits) - 1);
-  const answer = [intToIp4(ip4ToInt(range) & mask), intToIp4(ip4ToInt(range) | ~mask)];
-  return [ip4ToInt(answer[0]), ip4ToInt(answer[1])]
+const calculateCidrRange = (cidr, get_readable) => {
+	const [range, bits = 32] = cidr.split('/');
+	const mask = ~(2 ** (32 - bits) - 1);
+	const answer = [intToIp4(ip4ToInt(range) & mask), intToIp4(ip4ToInt(range) | ~mask)];
+	
+	return [ip4ToInt(answer[0]), ip4ToInt(answer[1])]
 };
 
 function getBandwidth( bytes ){
@@ -238,6 +230,7 @@ function getBandwidth( bytes ){
 }
 
 function convertToBits(value, unit) {
+	value = parseFloat( value );
 	switch (unit) {
 		case "Kbps":
 			return value * 1000;
@@ -246,14 +239,97 @@ function convertToBits(value, unit) {
 		case "Gbps":
 			return value * 1000000000;
 	}
+	console.error("unkown unit " + unit);
 }
+
+function getUnit( com, metric_name ){
+	const metric = com.metrics.find( (me) => me.name == metric_name );
+	if( metric )
+		return metric.unit;
+	return "";
+}
+
+function _checkMaxThroughputPerSlice( metric, m, app, com, isDL ){
+   //nothing to do
+	const ipRange = com.ip;
+	if( !ipRange )
+		return console.log("not found IP range");
+
+	//const [cidrStart, cidrEnd] = calculateCidrRange( ipRange );
+	const now = (new Date()).getTime();
+
+	//const COL_IP     = isDL? COL.IP_DST : COL.IP_SRC;
+	const COL_RETRAN      = isDL? COL.DL_RETRANSMISSION : COL.UL_RETRANSMISSION;
+	const COL_DATA_VOLUME = isDL? COL.DL_DATA_VOLUME    : COL.UL_DATA_VOLUME;
+	
+	//2 thresholds for raising alert or violation
+	const unit = getUnit( com, metric.name);
+	if(! unit )
+		return console.log("cannot find value unit of metric " + metric.name );
+
+	const ALERT_BW = convertToBits(m.alert, unit);
+	const VIOLA_BW = convertToBits(m.violation, unit);
+	
+	const MAX_BW = Math.max(ALERT_BW, VIOLA_BW);
+	console.log(" mininum required bandwidth: ", MAX_BW );
+	//minimum number of bytes should be transmitted during CHECK_AVG_INTERVAL
+	const MAX_DATA_VOLUME = MAX_BW * CHECK_AVG_INTERVAL / 8;
+
+	const match = {};
+	//in checking period
+	match[COL.TIMESTAMP] = {"$gte": TIMESTAMP.start,"$lt": TIMESTAMP.end};
+	
+	const groupBy = {"_id": {}};
+
+	// sum by
+	[COL_RETRAN, COL_DATA_VOLUME].forEach( (e) => groupBy[e] = {"$sum" : "$"+e} );
+	
+	// match 2
+	const match2 = {}
+	//1. has retransmitted data
+	match2[COL_RETRAN] = {"$gt" : 0};
+	//2. bandwidth is less than expected
+	match2[ COL_DATA_VOLUME ] = {"$lt" : MAX_DATA_VOLUME };
+
+	const query = [
+		{"$match"  : match},
+		{"$group"  : groupBy},
+		{"$match"  : match2},
+	];
+	console.log( JSON.stringify(query ));
+	
+	dbconnector._queryDB( "data_session_real", "aggregate", query, 
+		function( err, result){
+			if( err )
+				return console.error( err );
+			if( result.length  == 0 ) 
+				return;
+			//console.log(  result )
+			//result = [ { '14': 63266316, '36': 1, _id: {} } ]
+			result = result[0];
+			
+			const currentBw = getBandwidth( result[ COL_DATA_VOLUME ] )
+			
+			const other = {retransmission: result[COL_RETRAN]};
+			if( currentBw <= VIOLA_BW){
+				console.log(" => raise violation as current BW (" + currentBw + ') < ' + VIOLA_BW );
+				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.name, VIOLA_BW, currentBw, m.priority, other);
+			} else {
+				console.log(" => raise alert as current BW (" + currentBw + ') < ' + ALERT_BW );
+				return _raiseMessage( now, constant.ALERT_STR, app.app_id, com.id, metric.name, ALERT_BW, currentBw, m.priority, other);
+			}
+			
+		}, false);
+
+}
+
 // max available bandwidth
-function getMaxAvailableBandwidthBps( com ){
+function getMinAvailableBandwidthBps( com ){
 	const defaultBw = 10*1000*1000; //10 Mbps
 	const dlMetric = com.metrics.find( (me) => me.name == "dlTput.maxDlTputPerSlice");
 	const ulMetric = com.metrics.find( (me) => me.name == "ulTput.maxUlTputPerSlice");
 
-	const max = Math.max(defaultBw, convertToBits(dlMetric.violation, dlMetric.unit),
+	const max = Math.min(defaultBw, convertToBits(dlMetric.violation, dlMetric.unit),
 		convertToBits(ulMetric.violation, ulMetric.unit));
 		
 	console.log("max avail bandwidth: " + max );
@@ -272,7 +348,7 @@ function _checkDDoS( metric, m, app, com ){
 
 	const match = {};
 	//in checking period
-	match[COL.TIMESTAMP] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now }
+	match[COL.TIMESTAMP] = {"$gte": TIMESTAMP.start,"$lt": TIMESTAMP.end};
 	// IP in the list
 	match["ip_src"] = { "$gte": cidrStart, "$lte": cidrEnd }
 	const groupBy = {"_id": {}};
@@ -293,14 +369,14 @@ function _checkDDoS( metric, m, app, com ){
 				return console.error( err );
 			if( result.length  == 0 ) 
 				return;
-			console.log(result);
+			//console.log(result);
 			//result = [ { '7': 1321, '8': 295534, _id: { '18': '10.0.2.2' } } ]
 			result.forEach( function(row){
 				const ip         = row["_id"][COL.IP_SRC];
 				const consumedBw = getBandwidth(row[COL.DATA_VOLUME] );
-				const availBw    = getMaxAvailableBandwidthBps( com );
+				const availBw    = getMinAvailableBandwidthBps( com );
 				// 1. does it consume all bandwidth ?
-/*
+
 				if( consumedBw <= availBw * 0.9  )
 					return;
 				
@@ -311,7 +387,7 @@ function _checkDDoS( metric, m, app, com ){
 				// 3. has it a lot of IP destination
 				if( row[COL.IP_DST] <= 10 )
 					return;
-*/
+
 				// until here we can conclude DDoS
 				
 				// create a security alert to show it in "security" dashboard
@@ -325,12 +401,14 @@ function _checkDDoS( metric, m, app, com ){
 				_createSecurityAlert(app.app_id, "operator", now, metric.id, "detected", "attack", metric.title, 
 						{"event_1": {"timestamp": now, "description": "detected by SLA viloation checking engine", "attributes": val}});
 
-				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.name, m.violation, val, m.priority);
+				const other = {"ip": ip};
+				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.name, m.violation, val, m.priority, other);
 			})
 		}, false);
 }
 
 function perform_check(){
+
    console.log(" checking SLA violation ...");
    //get a list of applications defined in metrics collections
    dbconnector._queryDB("metrics", "find", [], function( err, apps){
@@ -421,8 +499,10 @@ function perform_check(){
                      break;
 
                   case "dlTput.maxDlTputPerSlice":
+                     _checkMaxThroughputPerSlice( metric, m, app, com, true );
+                     break;
                   case "ulTput.maxUlTputPerSlice":
-                     _checkMaxThroughputPerSlice( metric, m, app, com );
+                     _checkMaxThroughputPerSlice( metric, m, app, com, false );
                      break;
 
                   case "dlTput.maxTputVariation":
@@ -446,6 +526,9 @@ function perform_check(){
             }
          }
       }
+
+      TIMESTAMP.start = TIMESTAMP.end;
+      TIMESTAMP.end   = (new Date()).getTime();
 
    }, false );
 }
@@ -476,6 +559,10 @@ function start( pub_sub, _dbconnector ){
 
       CHECK_AVG_INTERVAL = config.sla.violation_check_period*1000; //each X seconds
       console.log("start SLA violation checking each " + config.sla.violation_check_period + " seconds");
+
+      const now = (new Date()).getTime();
+      TIMESTAMP.start = now - CHECK_AVG_INTERVAL;
+      TIMESTAMP.end   = now;
       setInterval( perform_check, CHECK_AVG_INTERVAL );
    });
 }

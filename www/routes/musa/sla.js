@@ -83,6 +83,10 @@ router.post("/uploadRaw/:id?", function(req, res, next) {
    });//parser.parseString
 });
 
+function _deepClone( x ){
+	return JSON.parse( JSON.stringify( x ));
+}
+
 //upload SLA files
 router.post("/upload/:id?", function(req, res, next) {
    //status of processing SLA files
@@ -109,7 +113,8 @@ router.post("/upload/:id?", function(req, res, next) {
    multer({ dest: '/tmp/' }).single("filename")( req, res, function( err ){
 
       //id of component
-      const comp_index = parseInt(req.body.component_id);
+      const comp_index = parseInt(req.body.component_id) || 0;
+      console.log("====> comp_index ===", comp_index);
 
       //first component of the app
       if( router._sla[ app_id ]  == undefined || comp_index == 0)
@@ -120,9 +125,9 @@ router.post("/upload/:id?", function(req, res, next) {
       if( app_config.id == undefined )
          app_config.id = app_id;
       if( app_config.init_metrics == undefined )
-         app_config.init_metrics    = config.sla.init_metrics; //JSON.parse( req.body.init_metrics );
-      if( app_config.init_components === undefined )
-         app_config.init_components = config.sla.init_components;
+         app_config.init_metrics    = _deepClone(config.sla.init_metrics); //JSON.parse( req.body.init_metrics );
+      if( app_config.init_components == undefined )
+         app_config.init_components = _deepClone(config.sla.init_components);
 
       if( app_config.components == undefined )
          app_config.components = [];
@@ -344,8 +349,7 @@ function extract_metrics_json( app_config, index, cb ){
          if( metric.unit != undefined )
             metricData.unit = metric.unit;
 
-         if ( metric.name == "attack.DDoS" || metric.name == "dlTput.minDlTputRequirement" ||
-               metric.name == "dlTput.maxDlTputPerSlice" || metric.name == "ulTput.maxUlTputPerSlice" )
+         if ( ["attack.DDoS", "dlTput.maxDlTputPerSlice", "ulTput.maxUlTputPerSlice" ].indexOf( metric.name ) != -1)
             metricData.support = true;
          else {
             metricData.support = false;

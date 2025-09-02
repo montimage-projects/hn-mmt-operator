@@ -21,29 +21,63 @@ const METRIC_COL = {
 		PRIORITY: 5, 
 		THRESHOLD: 6, 
 		VALUE: 7,
+		OTHER_INFO: 8
 }
 //global variable for this module
 var dbconnector = {};
 var publisher   = {};
 const REACTORS  = {};
 
+function _getIPs( metric_alert_or_violation ){
+	const impactIPs = [];
+	const metricName = metric_alert_or_violation[ METRIC_COL.METRIC_NAME ];
+	
+	const otherInfo = metric_alert_or_violation[ METRIC_COL.OTHER_INFO];
+	try{
+		switch( metricName ){
+			case "attack.DDoS":
+				impactIPs.push( JSON.parse( otherInfo ).ip )
+			break;
+		}
+	} catch( e ){
+		console.error( e );
+	}
+	
+	return impactIPs;
+}
 
 //raise message on a special channel of pub-sub
 // + save message to DB
-function _raiseMessage( action_name, msg ){
-	const reaction = REACTORS[ action_name ];
-	if( reaction == undefined )
+function _raiseMessage( action_name, msg, metric_alert_or_violation ){
+	const action = REACTORS[ action_name ];
+	if( action == undefined )
 		return console.error("Reaction [" + action_name + "] is not supported");
 
-	var obj = {};
+	if( publisher.publish ){
+		const publishMsg = {};
+		//moment of publishing this message
+		publishMsg.ts = (new Date()).getTime();
+		//name of action
+		publishMsg.action = action_name;
+		//metric that triggers this action
+		publishMsg.metric = {
+			"ts"  : metric_alert_or_violation[ METRIC_COL.TIMESTAMP ],
+			"name": metric_alert_or_violation[ METRIC_COL.METRIC_NAME ],
+			"type": metric_alert_or_violation[ METRIC_COL.TYPE ]
+		}
+		
+		publishMsg.impact_ips = _getIPs( metric_alert_or_violation );
+		
+		publisher.publish( action.channel_name, JSON.stringify( publishMsg ) );
+	}
+
+
+	const obj = {};
 	for( const i in msg )
 		obj[i] = msg[i];
 	
-	if( publisher.publish )
-		publisher.publish( reaction.channel_name, JSON.stringify( msg ) );
-
 	//add reaction at the end of message
-	obj[ msg.length ] = JSON.stringify(reaction);
+	obj[ msg.length ] = JSON.stringify( metric_alert_or_violation );
 	
 	console.log(JSON.stringify(obj))
 	
@@ -102,14 +136,14 @@ function _checkReaction( reaction ){
 		for( var i=0; i<reaction.actions.length; i++ )
 			_raiseMessage( reaction.actions[i], 
 				[
-					1002, //format id
-					reaction.app_id, //probe id
-					"iOper", //src
-					(new Date()).getTime(), //timestamp
-					"" + reaction.comp_id, 
-					"" + reaction.id, 
-					reaction.actions[i], 
-					reaction.note],
+					1002,                   //0. format id
+					reaction.app_id || 1,   //1. probe id
+					"iOper",                //2. src
+					(new Date()).getTime(), //3. timestamp
+					"" + reaction.comp_id,  //4. component ID
+					"" + reaction.id,       //5. reaction ID
+					reaction.actions[i],    //6. action name
+					reaction.note],         //7. reaction note
 					result);
 		
 		//console.log( result );

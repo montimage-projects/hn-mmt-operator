@@ -139,7 +139,7 @@ var ReportFactory = {
 
                   var actionList = [];
                   reaction.actions.forEach( function( val ){
-                     actionList.push('<p><span style="font-weight:bold; text-transform: uppercase">'+ val +'</span> ' + _getActionDescription( val )) + '</p>';
+                     actionList.push('<p><span style="font-weight:bold">'+ val +'</span> ' + _getActionDescription( val )) + '</p>';
                   });
 
                   //reaction
@@ -209,7 +209,8 @@ var ReportFactory = {
                            id   : "reaction-" + react_id,
                            "data-reaction"    : JSON.stringify( reaction ),
                            "data-reaction-id" : react_id,
-                           html: (reaction.action == "finish"? "executed ..." : "checking ...")
+                           //html: (reaction.action == "finish"? "executed ..." : "checking ...")
+                           html: ""
                         },
                      });
 
