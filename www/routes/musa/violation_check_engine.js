@@ -235,7 +235,7 @@ function perform_check(){
                   continue;
                
                //metric is disable
-               if( m.enable === false )
+               if( ! m.enable )
                   continue;
                
                //no alerts nor violation conditions
@@ -259,6 +259,31 @@ function perform_check(){
                   case "limit_gtp":
                      _checkGtpLimitation( metric, m, app, com );
                      break;
+                  //influence
+                  case "dlTput.minDlTputRequirement":
+                     break;
+
+                  case "dlTput.maxDlTputPerSlice":
+                  case "ulTput.maxUlTputPerSlice":
+                     break;
+
+                  case "dlTput.maxTputVariation":
+                  case "ulTput.maxTputVariation":
+                     break;
+
+                  case "latency.maxE2ELatency":
+                     break;
+
+                  case "latency.lowJitter":
+                     break;
+
+
+                  case "dim.maxPDUsessions":
+                     break;
+
+                  case "dim.numberOfTerminals":
+                     break;
+
                }
             }
          }
