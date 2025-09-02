@@ -258,20 +258,22 @@ var ReportFactory = {
 
             //for each element of either alert or violation of a metric
             //update value to DOM element
+            setTimeout( function(){
             $(".nb-triggered-actions").each(function (i, el) {
                const dataset = el.dataset;
-               const comp_id = parseInt(dataset.compid),
-                     ract_id = parseInt(dataset.reactid);
+               const comp_id = dataset.compid,
+                     ract_id = dataset.reactid;
 
-               const db = new MMTDrop.Database({ collection: "metric_reactions", action: "aggregate", raw: true });
+               const db = new MMTDrop.Database({ collection: "metrics_reactions", action: "aggregate", raw: true });
                const query = [
-                  {$group: {
-                     _id: {"comp_id": "$1" },
+                  { $match: {"4": comp_id, "5": ract_id} },
+                  { $group: {
+                     _id: {"comp_id": "$4" },
                      val: {$sum: 1}
                   }}
                ]
 
-               db.reload({ query: query, period: status_db.time, period_groupby: fPeriod.selectedOption().id },
+               db.reload({ query: query, period: status_db.time },
                //$(el).html( '<i class = "fa fa-refresh fa-spin fa-fw"/>' );
                   function (data) {
                      console.log("got", data);
@@ -283,6 +285,7 @@ var ReportFactory = {
                      }, i * 100, el);
                });
             });
+            }, 2000);
 
             window._btnClick = function ( type, react_id, cb ){
                cb = cb || function(){};

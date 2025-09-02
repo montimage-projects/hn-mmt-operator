@@ -36,7 +36,7 @@ function _raiseMessage( action_name, msg ){
 		return console.error("Reaction [" + action_name + "] is not supported");
 
 	var obj = {};
-	for( var i in msg )
+	for( const i in msg )
 		obj[i] = msg[i];
 	
 	if( publisher.publish )
@@ -73,7 +73,7 @@ function _checkReaction( reaction ){
 	
     const now = (new Date()).getTime();
     const $match = {};
-    //$match[ METRIC_COL.TIMESTAMP ] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now };
+    $match[ METRIC_COL.TIMESTAMP ] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now };
     if( reaction.app_id )
        $match[ METRIC_COL.APP_ID ]    = reaction.app_id;
     if( reaction.comp_id )
@@ -101,9 +101,16 @@ function _checkReaction( reaction ){
 		
 		for( var i=0; i<reaction.actions.length; i++ )
 			_raiseMessage( reaction.actions[i], 
-				[(new Date()).getTime(), //timestamp
-				102, //message type
-				 reaction.app_id, reaction.comp_id, reaction.id, reaction.actions[i], reaction.note]);
+				[
+					1002, //format id
+					reaction.app_id, //probe id
+					"iOper", //src
+					(new Date()).getTime(), //timestamp
+					"" + reaction.comp_id, 
+					"" + reaction.id, 
+					reaction.actions[i], 
+					reaction.note],
+					result);
 		
 		//console.log( result );
 	}, false);

@@ -272,7 +272,7 @@ function _checkDDoS( metric, m, app, com ){
 
 	const match = {};
 	//in checking period
-	//TODO match[COL.TIMESTAMP] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now }
+	match[COL.TIMESTAMP] = {"$gte": (now - CHECK_AVG_INTERVAL),"$lt":now }
 	// IP in the list
 	match["ip_src"] = { "$gte": cidrStart, "$lte": cidrEnd }
 	const groupBy = {"_id": {}};
