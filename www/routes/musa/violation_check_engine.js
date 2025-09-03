@@ -376,10 +376,10 @@ function _checkDDoS( metric, m, app, com ){
 				const consumedBw = getBandwidth(row[COL.DATA_VOLUME] );
 				const availBw    = getMinAvailableBandwidthBps( com );
 				// 1. does it consume all bandwidth ?
-
+/*
 				if( consumedBw <= availBw * 0.9  )
 					return;
-				
+
 				// 2. has it a lot of flows ?
 				if( row[COL.ACTIVE_FLOWS] <= 100 )
 					return;
@@ -387,7 +387,7 @@ function _checkDDoS( metric, m, app, com ){
 				// 3. has it a lot of IP destination
 				if( row[COL.IP_DST] <= 10 )
 					return;
-
+*/
 				// until here we can conclude DDoS
 				
 				// create a security alert to show it in "security" dashboard
