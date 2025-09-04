@@ -226,7 +226,7 @@ const calculateCidrRange = (cidr, get_readable) => {
 };
 
 function getBandwidth( bytes ){
-	return bytes * 8 / CHECK_AVG_INTERVAL;
+	return Math.round(bytes * 8 / CHECK_AVG_INTERVAL);
 }
 
 function convertToBits(value, unit) {
@@ -345,6 +345,8 @@ function _checkDDoS( metric, m, app, com ){
 	const [cidrStart, cidrEnd] = calculateCidrRange( ipRange );
 	const now = (new Date()).getTime();
 
+	//the thresholds can be provided via SLA file
+	const ddosConf = metric?.config?.threshold || {};
 
 	const match = {};
 	//in checking period
@@ -358,7 +360,7 @@ function _checkDDoS( metric, m, app, com ){
 	[COL.ACTIVE_FLOWS, COL.DATA_VOLUME].forEach( (e) => groupBy[e] = {"$sum" : "$"+e} );
 	
 	// count
-	[COL.IP_DST].forEach( (e) => groupBy[e] = {"$sum" : 1} );
+	[COL.IP_DST].forEach( (e) => groupBy[e] = {"$addToSet" : '$'+e} );
 	
 	dbconnector._queryDB( "data_link_real", "aggregate", [
 		{"$match"  : match},
@@ -375,19 +377,23 @@ function _checkDDoS( metric, m, app, com ){
 				const ip         = row["_id"][COL.IP_SRC];
 				const consumedBw = getBandwidth(row[COL.DATA_VOLUME] );
 				const availBw    = getMinAvailableBandwidthBps( com );
+				const targets    = row[COL.IP_DST];
 				// 1. does it consume all bandwidth ?
-/*
-				if( consumedBw <= availBw * 0.9  )
+				const bw_threshold = ddosConf.consumed_bps || availBw * 0.9;
+				 
+				if( consumedBw <=  bw_threshold)
 					return;
 
+				const nb_flows = ddosConf.nb_flows || 100;
 				// 2. has it a lot of flows ?
-				if( row[COL.ACTIVE_FLOWS] <= 100 )
+				if( row[COL.ACTIVE_FLOWS] <= nb_flows )
 					return;
 				
+				const nb_targets = ddosConf.nb_targets || 10;
 				// 3. has it a lot of IP destination
-				if( row[COL.IP_DST] <= 10 )
+				if( row[COL.IP_DST] <= nb_targets )
 					return;
-*/
+
 				// until here we can conclude DDoS
 				
 				// create a security alert to show it in "security" dashboard
@@ -395,7 +401,8 @@ function _checkDDoS( metric, m, app, com ){
 						["consumed_bw", consumedBw], 
 						["percent_bw",  Math.round(consumedBw*100.0/availBw)], 
 						["nb_flows", row[COL.ACTIVE_FLOWS] ], 
-						["nb_targets", row[COL.IP_DST] ]
+						["nb_targets", targets.length ],
+						["targets", targets]
 				];
 				console.log("=> DDoS detected ", val);
 				_createSecurityAlert(app.app_id, "operator", now, metric.id, "detected", "attack", metric.title, 
@@ -472,7 +479,7 @@ function perform_check(){
                if( m.alert == "" && m.violation == "" )
                   continue;
 
-               console.log("Checking metric " + metric.name);
+               console.log("Checking metric " + metric.name +': ' + JSON.stringify(metric));
                
                switch( metric.name ){
                   //musa project

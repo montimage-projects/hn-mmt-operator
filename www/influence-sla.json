@@ -23,7 +23,8 @@
             "title": "DDoS Attack Detected in the Network",
             "alert_value": 1,
             "violation_value": 1,
-            "enable": true
+            "enable": true,
+            "config": {"threshold": {"consumed_bps": 100000, "nb_flows": 100, "nb_targets": 10}}
         },
         {
             "name": "dlTput.minDlTputRequirement",

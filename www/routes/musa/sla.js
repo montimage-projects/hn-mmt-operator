@@ -358,7 +358,9 @@ function extract_metrics_json( app_config, index, cb ){
             alert       : metric.alert_value,
             violation   : metric.violation_value,
             enable      : metric.enable,
+            config      : metric.config
          }
+
          if( metric.unit != undefined )
             metricData.unit = metric.unit;
 
