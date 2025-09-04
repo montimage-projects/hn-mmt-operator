@@ -91,7 +91,6 @@ function _deepClone( x ){
 router.post("/upload/:id?", function(req, res, next) {
    //status of processing SLA files
    const app_id = (req.params.id == undefined ? "__app" : req.params.id );
-   const status = router._data[ app_id ] = {progress: 0, message:"", error: false};
    
    // api: finish uploading
    const act = req.query.act;
@@ -108,6 +107,9 @@ router.post("/upload/:id?", function(req, res, next) {
    } else if( act ){
       return api_response(res, "not support")
    } 
+
+
+   const status = router._data[ app_id ] = {progress: 0, message:"", error: false};
 
    //handle SLA files uploading
    multer({ dest: '/tmp/' }).single("filename")( req, res, function( err ){
@@ -143,6 +145,7 @@ router.post("/upload/:id?", function(req, res, next) {
 
       //file being uploaded
       const file  = req.file;
+      const isJsonFile = file.originalname.endsWith(".json");
 
       status.error = false;
       status.progress = 30;
@@ -196,42 +199,52 @@ router.post("/upload/:id?", function(req, res, next) {
                }, 2000);
 
             } catch (jsonErr) {
+               // when uploading a .json file ==> stop parsing
+               if( isJsonFile )
+                   return raise_error("JSON file is malformed: " + jsonErr.message );
+
                // assume that if the JSON parsing fails, then file is XML
                //parse file content as json
-               parser.parseString(data, function (err_2, result) {
-                  if( err_2 ){
-                     console.error( err_2 );
-                     return raise_error( err_2.message );
-                  }
+               try{
+                  parser.parseString(data, function (err_2, result) {
+                     if( err_2 ){
+                        console.error( err_2 );
+                        return raise_error( err_2.message );
+                     }
 
-                  app_config.sla[ comp_index ] = result;
+                     app_config.sla[ comp_index ] = result;
 
-                  status.error    = false;
-                  status.message  = "Parsed SLA";
-                  status.progress = 40;
+                     status.error    = false;
+                     status.message  = "Parsed SLA";
+                     status.progress = 40;
 
-                  //extract content of sla file (that is in JSON format)
-                  setTimeout( function(){
-                     extract_metrics( app_config, comp_index, function( err_3, count, comp_name ){
-                        if( err_3 ){
-                           console.error( err_3 );
-                           return raise_error( err_3.message );
-                        }
+                     //extract content of sla file (that is in JSON format)
+                     setTimeout( function(){
+                        extract_metrics( app_config, comp_index, function( err_3, count, comp_name ){
+                           if( err_3 ){
+                              console.error( err_3 );
+                              return raise_error( err_3.message );
+                           }
 
-                        status.error    = false;
-                        status.progress = 100;
-                        status.message  = "Extracted "+ count +" metrics ";
+                           status.error    = false;
+                           status.progress = 100;
+                           status.message  = "Extracted "+ count +" metrics ";
 
-                     });
+                        });
 
-                  },2000)
-               });//parser.parseString
+                     },2000)
+                  });//parser.parseString
+               } catch( xmlErr ){
+                  return raise_error("XML file is malformed: " + xmlErr.message );
+               }
             }
          });//fs.readFile
       }, 1000);
 
       //204: The server has successfully fulfilled the request and that there is no additional content to send in the response payload body.
-      res.status(204).end()
+      res.status(204)
+      res.setHeader("Content-Type", "application/json")
+      res.send({error: false, message: "got SLA file", progress: 0});
    })
 });
 
@@ -574,13 +587,23 @@ function getSelectedReactions( app_config ){
 }
 
 function insert_to_db( app_id, cb ) {
+
+   //error when parsing
+   const status = router._data[ app_id ];
+   if( status && status.error )
+      return cb( status.message );
+
    const app_config = router._sla[ app_id ];
+
+   if( !app_config || app_config.id == undefined ||  app_config.components == undefined )
+      return cb( "nothing to update" );
+
+   // no component
+   if( app_config.components.length == 0 )
+      return cb("no component or metric (SLA is being parsed)");
 
    //reset
    router._sla[ app_id ] = null;
-
-   if( app_config === undefined || app_config.id === undefined )
-      return cb( "nothing to update" );
 
    //upsert to database
    router.dbconnector.mdb.collection("metrics").update( {app_id: app_config.id},
@@ -647,7 +670,7 @@ router.get("/upload/:id?", function ( req, res, next ){
       return _redirectToMetric( req, res );
    }
 
-   if( status === undefined )
+   if( status == undefined )
       return res.status(400).send("Not found!!!");
 
    res.setHeader("Content-Type", "application/json");
