@@ -74,8 +74,10 @@ var ReportFactory = {
          //get number of alerts from database
          const
             TYPE = "$4", //index of "type" in DB
-            // match = { "0": { "$gte": status_db.time.begin, "$lt": status_db.time.end }, "1": getAppID() },
-            match = { "1": getAppID() },
+            // show only alerts inside the selected time period (last 5 min, last hour, ...)
+            match = { "0": { "$gte": status_db.time.begin, "$lt": status_db.time.end }, "1": getAppID() },
+            // show only the alert concerning the current app
+            //match = { "1": getAppID()},
             group = {
                "_id": { "1": "$1", "2": "$2", "3": "$3" }, //group by app_id, comp_id and metric_id
                "alert": { "$sum": { $cond: { if: { $eq: [TYPE, "alert"] }, then: 1, else: 0 } } },
