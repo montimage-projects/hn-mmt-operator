@@ -30,7 +30,7 @@
             "title": "Minimum Downlink Throughput that needs to be guaranteed",
             "alert_value": 100,
             "violation_value": 90,
-            "unit": "Mbps",
+            "unit": "Gbps",
             "enable": true
         },
         {

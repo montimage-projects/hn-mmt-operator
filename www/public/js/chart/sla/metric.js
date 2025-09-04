@@ -35,8 +35,6 @@ var ReportFactory = {
             var init_components = obj.components,
             init_metrics    = obj.metrics;
 
-            const isInfluence = init_components.some(item => item.title === "INFLUENCE5G")
-
             var table_rows = [{
                   type    : "<thead>",
                   children: [{
@@ -61,7 +59,12 @@ var ReportFactory = {
                      },{
                         type : "<th>",
                         attr : {
-                           text : isInfluence ? "Unit" : "Priority"
+                           text : "Unit" 
+                        }
+                     },{
+                        type : "<th>",
+                        attr : {
+                           text : "Priority" 
                         }
                      },{
                         type : "<th>",
@@ -176,7 +179,7 @@ var ReportFactory = {
                      }]
                   });
 
-                  if (isInfluence) {
+                  //unit
                      const unitChildren = getUnitOptions(me.name, me.unit);
 
                      // unit
@@ -193,8 +196,6 @@ var ReportFactory = {
                            children : unitChildren
                         }]
                      });
-                  }
-                  else {
                      //priority
                      row.children.push({
                         type     : "<td>",
@@ -230,7 +231,6 @@ var ReportFactory = {
                            }]
                         }]
                      });
-                  }
 
                   //enable/disable
                   row.children.push({
@@ -376,7 +376,6 @@ var ReportFactory = {
                return;
 
             const init_components = obj.components;
-            const isInfluence = init_components.some(item => item.title === "INFLUENCE5G")
 
             for( var i=0; i<obj.components.length; i++){
                var comp = obj.components[ i ];
@@ -397,12 +396,10 @@ var ReportFactory = {
 
                      var id = comp.id + "-" + me.id;
 
-                     if (isInfluence) {
-                        if(sel.unit != undefined) $("[id='unit-" + id + "']").val( sel.unit      )
+                     if(sel.unit != undefined) 
+                         $("[id='unit-" + id + "']").val( sel.unit      )
 
-                     } else {
-                        $("[id='priority-" + id + "']").val( sel.priority  );
-                     }
+                     $("[id='priority-" + id + "']").val( sel.priority  );
 
                      $("[id='alert-" + id + "']").val( sel.alert     ),
                      $("[id='violation-" + id + "']").val( sel.violation );
@@ -620,7 +617,7 @@ function validateTypes (metric, value) {
             var obj = window._mmt;
 
             const init_components = obj.components;
-            const isInfluence = init_components.some(item => item.title === "INFLUENCE5G")
+            const isInfluence = init_components.some(item => item.title.indexOf("INFLUENCE") != -1)
 
             var selectedMetric = {};
 
@@ -656,7 +653,8 @@ function validateTypes (metric, value) {
                            alert     : JSON.parse(alert),
                            violation : JSON.parse(violation),
                            enable    : $("[id='enable-" + id + "']").is(":checked"),
-                           unit      : $("[id='unit-" + id + "']").val()
+                           unit      : $("[id='unit-" + id + "']").val(),
+                           priority  : $("[id='priority-" + id + "']").val(),
                      };
                   }
                   else {
@@ -670,6 +668,7 @@ function validateTypes (metric, value) {
                      selectedMetric[ comp.id ][ me.id ] = {
                            alert     : alert,
                            violation : violation,
+                           unit      : $("[id='unit-" + id + "']").val(),
                            priority  : $("[id='priority-" + id + "']").val(),
                            enable    : $("[id='enable-" + id + "']").is(":checked")
                      };

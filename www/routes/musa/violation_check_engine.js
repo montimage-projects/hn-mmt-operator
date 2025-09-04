@@ -263,11 +263,11 @@ function _checkMaxThroughputPerSlice( metric, m, app, com, isDL ){
 	const COL_DATA_VOLUME = isDL? COL.DL_DATA_VOLUME    : COL.UL_DATA_VOLUME;
 	
 	//2 thresholds for raising alert or violation
-	const unit = getUnit( com, metric.name);
+	const unit = m.unit; //getUnit( com, metric.name);
 	if(! unit )
 		return console.log("cannot find value unit of metric " + metric.name );
 
-	const ALERT_BW = convertToBits(m.alert, unit);
+	const ALERT_BW = convertToBits(m.alert,     unit);
 	const VIOLA_BW = convertToBits(m.violation, unit);
 	
 	const MAX_BW = Math.max(ALERT_BW, VIOLA_BW);
