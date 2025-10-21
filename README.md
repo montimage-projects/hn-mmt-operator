@@ -12,9 +12,26 @@ This chain of tools depends on the following packages:
 
 Follow the instruction on nodejs.org: https://nodejs.org/en/download/package-manager/#debian-and-ubuntu-based-linux-distributions
 
-### 2. Mongo DB v4.4
+### 2. Mongo DB
 
-Follow the procedure described on the following link to install the latest version of Mongodb: https://www.mongodb.com/docs/v4.4/tutorial/install-mongodb-on-ubuntu/
+Follow the procedure described on the following link to install Mongodb: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/
+
+For example, the following commands will install MongoDB 8.0 on Ubuntu server 22.04:
+
+```bash
+# install gnupg and curl if they are not already available:
+sudo apt-get install gnupg curl
+# import the MongoDB public GPG key,
+curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+   sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg \
+   --dearmor
+# create the list file for Ubuntu 22.04
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+# reload the package database
+sudo apt-get update
+# install MongoDB Community Server
+sudo apt-get install -y mongodb-org
+```
 
 ## Usage
 
