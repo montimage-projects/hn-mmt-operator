@@ -11,4 +11,7 @@ RUN chmod +x /opt/mmt/operator/bin/www
 
 EXPOSE 8080
 
+# Define environment for production
+ENV NODE_ENV=production
+
 ENTRYPOINT ["/opt/mmt/operator/bin/www"]
