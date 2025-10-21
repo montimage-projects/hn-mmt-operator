@@ -428,7 +428,7 @@ ReportFactory.createSecurityRealtimeReport = function (fPeriod) {
                         const val = atts[1];
 
                         //check if key is one of the followings
-                        const ipArr = ["ip.src", "ip.dst", "ethernet.src", "ethernet.dst", "s1ap.ue_ipv4", "s1ap.enb_ipv4", "s1ap.mme_ipv4"];
+                        const ipArr = ["ip.src", "ip.dst", "ethernet.src", "ethernet.dst", "s1ap.ue_ipv4", "s1ap.enb_ipv4", "s1ap.mme_ipv4", "ocpp_data.src_ip", "ocpp_data.dst_ip"];
                         
                         if( ipArr.indexOf( key )  !== -1 ){
                            //if the att is not yet added

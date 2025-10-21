@@ -8,10 +8,10 @@
 		"port": 6379
 	},
 	"kafka_input": {
-		"host": "",
+		"host": "localhost",
 		"port": 9092,
 		"ssl.ca.location": "data/kafka-ca.cert",
-		"topic": "",
+		"topic": "UC1.dashboard_alerts",
 		"client_name": "mmt-operator-kafka-client",
 		"username": "",
 		"password": ""

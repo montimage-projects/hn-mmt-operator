@@ -1,4 +1,4 @@
-FROM node:12-alpine
+FROM node:20-alpine
 
 LABEL maintainer="Montimage <contact@montimage.com>"
 
@@ -10,5 +10,8 @@ RUN chmod +x /opt/mmt/operator/bin/www
 
 
 EXPOSE 8080
+
+# Define environment for production
+ENV NODE_ENV=production
 
 ENTRYPOINT ["/opt/mmt/operator/bin/www"]
