@@ -28,7 +28,7 @@ CONST       = require("../libs/constant"),
 FORMAT      = require('util').format;
 
 //limit DB storage size by number of Bytes
-const MIN_SIZE         = 10*1000*1000; //10MB
+const MIN_SIZE         = 100*1000*1000; //100MB
 const DB_LIMIT_SIZE    = config.limit_database_size > MIN_SIZE? config.limit_database_size : MIN_SIZE ; 
 const DB_STEP_INCREASE = 10;
 
