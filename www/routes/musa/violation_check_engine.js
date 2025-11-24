@@ -8,7 +8,7 @@ const dataAdaptor = require('../../libs/dataAdaptor');
 
 const COL  = dataAdaptor.StatsColumnId;
 
-var CHECK_AVG_INTERVAL = 60*1000; //1minute
+var CHECK_AVG_INTERVAL_MILISECOND = 60*1000; //1minute
 
 //global variable for this module
 var dbconnector = null;
@@ -226,7 +226,8 @@ const calculateCidrRange = (cidr, get_readable) => {
 };
 
 function getBandwidth( bytes ){
-	return Math.round(bytes * 8 / CHECK_AVG_INTERVAL);
+	const nb_seconds = CHECK_AVG_INTERVAL_MILISECOND / 1000;
+	return Math.round(bytes * 8 / nb_seconds); 
 }
 
 function convertToBits(value, unit) {
@@ -272,8 +273,8 @@ function _checkMaxThroughputPerSlice( metric, m, app, com, isDL ){
 	
 	const MAX_BW = Math.max(ALERT_BW, VIOLA_BW);
 	console.log(" mininum required bandwidth: ", MAX_BW );
-	//minimum number of bytes should be transmitted during CHECK_AVG_INTERVAL
-	const MAX_DATA_VOLUME = MAX_BW * CHECK_AVG_INTERVAL / 8;
+	//minimum number of bytes should be transmitted during CHECK_AVG_INTERVAL_MILISECOND
+	const MAX_DATA_VOLUME = MAX_BW * CHECK_AVG_INTERVAL_MILISECOND / 8;
 
 	const match = {};
 	//in checking period
@@ -381,17 +382,17 @@ function _checkDDoS( metric, m, app, com ){
 				// 1. does it consume all bandwidth ?
 				const bw_threshold = ddosConf.consumed_bps || availBw * 0.9;
 				 
-				if( consumedBw <=  bw_threshold)
+				if( consumedBw <  bw_threshold)
 					return;
 
 				const nb_flows = ddosConf.nb_flows || 100;
 				// 2. has it a lot of flows ?
-				if( row[COL.ACTIVE_FLOWS] <= nb_flows )
+				if( row[COL.ACTIVE_FLOWS] < nb_flows )
 					return;
 				
 				const nb_targets = ddosConf.nb_targets || 10;
 				// 3. has it a lot of IP destination
-				if( row[COL.IP_DST] <= nb_targets )
+				if( row[COL.IP_DST] < nb_targets )
 					return;
 
 				// until here we can conclude DDoS
@@ -564,13 +565,14 @@ function start( pub_sub, _dbconnector ){
       if( pub_sub )
          publisher = pub_sub.createClient("producer", "musa-violation-checker");
 
-      CHECK_AVG_INTERVAL = config.sla.violation_check_period*1000; //each X seconds
+      CHECK_AVG_INTERVAL_MILISECOND = config.sla.violation_check_period*1000; //each X seconds
       console.log("start SLA violation checking each " + config.sla.violation_check_period + " seconds");
 
-      const now = (new Date()).getTime();
-      TIMESTAMP.start = now - CHECK_AVG_INTERVAL;
+      //at the begining, we check in the period [now-X, now]
+      const now = (new Date()).getTime(); //millisecond
+      TIMESTAMP.start = now - CHECK_AVG_INTERVAL_MILISECOND;
       TIMESTAMP.end   = now;
-      setInterval( perform_check, CHECK_AVG_INTERVAL );
+      setInterval( perform_check, CHECK_AVG_INTERVAL_MILISECOND );
    });
 }
 
