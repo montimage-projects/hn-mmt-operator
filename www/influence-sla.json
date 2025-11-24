@@ -24,7 +24,7 @@
             "alert_value": 1,
             "violation_value": 1,
             "enable": true,
-            "config": {"threshold": {"consumed_bps": 100000, "nb_flows": 100, "nb_targets": 10}}
+            "config": {"threshold": {"consumed_bps": 100000, "nb_flows": 10, "nb_targets": 10}}
         },
         {
             "name": "dlTput.minDlTputRequirement",
@@ -72,14 +72,14 @@
             "alert_value": 200,
             "violation_value": 2000,
             "unit": "ms",
-            "enable": false
+            "enable": true
         },
         {
             "name": "latency.lowJitter",
             "title": "Low jitter required",
             "alert_value": false,
             "violation_value": true,
-            "enable": true
+            "enable": false
         },
         {
             "name": "dim.maxPDUsessions",

@@ -61,7 +61,7 @@ function _raiseMessage( timestamp, type, app_id, com_id, metric_id, threshold, v
 }
 
 //dummy violation
-router.get("/:type/:app_id/:com_id/:metric_id/:threshold/:value/:priority", function( req, res, next ){
+router.post("/:type/:app_id/:com_id/:metric_id/:threshold/:value/:priority", function( req, res, next ){
    res.writeHead(200, { "Content-Type": "text/event-stream",
       "Cache-control": "no-cache" });
    
@@ -73,14 +73,14 @@ router.get("/:type/:app_id/:com_id/:metric_id/:threshold/:value/:priority", func
    
    if( req.params.app_id == undefined )
       req.params.app_id = "__app";
-   
+
    _raiseMessage( timestamp, req.params.type, req.params.app_id, req.params.com_id, req.params.metric_id, req.params.threshold, req.params.value, req.params.priority )
-   
+
    res.end( timestamp + ": Done" );
 });
 
 //insert dummy alert
-router.get("/:type/:metric_name", function( req, res, next ){
+router.post("/:type/:metric_name", function( req, res, next ){
    const type        = req.params.type;
    const metric_name = req.params.metric_name;
    
@@ -127,7 +127,7 @@ router.get("/:type/:metric_name", function( req, res, next ){
          //for each component in the app
          for( var j in app.components ){
             var com = app.components[j];
-            
+
             counter ++;
             _raiseMessage( timestamp, type, app.app_id, com.id, metric.id, "!= 0", 1, "MEDIUM" );
          }
@@ -233,14 +233,21 @@ function getBandwidth( bytes ){
 function convertToBits(value, unit) {
 	value = parseFloat( value );
 	switch (unit) {
-		case "Kbps":
+		case "kbps":
 			return value * 1000;
-		case "Mbps":
+		case "mbps":
 			return value * 1000000;
-		case "Gbps":
+		case "gbps":
 			return value * 1000000000;
+		case "Kbps":
+			return value * 1024;
+		case "Mbps":
+			return value * 1024 * 1024;
+		case "Gbps":
+			return value * 1024 * 1024 * 1024;
 	}
 	console.error("unkown unit " + unit);
+	return value;
 }
 
 function getUnit( com, metric_name ){
@@ -273,8 +280,9 @@ function _checkMaxThroughputPerSlice( metric, m, app, com, isDL ){
 	
 	const MAX_BW = Math.max(ALERT_BW, VIOLA_BW);
 	console.log(" mininum required bandwidth: ", MAX_BW );
+	const nb_seconds = CHECK_AVG_INTERVAL_MILISECOND / 1000;
 	//minimum number of bytes should be transmitted during CHECK_AVG_INTERVAL_MILISECOND
-	const MAX_DATA_VOLUME = MAX_BW * CHECK_AVG_INTERVAL_MILISECOND / 8;
+	const MAX_DATA_VOLUME = MAX_BW * nb_seconds / 8;
 
 	const match = {};
 	//in checking period
@@ -372,7 +380,7 @@ function _checkDDoS( metric, m, app, com ){
 				return console.error( err );
 			if( result.length  == 0 ) 
 				return;
-			//console.log(result);
+			console.log(result);
 			//result = [ { '7': 1321, '8': 295534, _id: { '18': '10.0.2.2' } } ]
 			result.forEach( function(row){
 				const ip         = row["_id"][COL.IP_SRC];
@@ -412,6 +420,90 @@ function _checkDDoS( metric, m, app, com ){
 				const other = {"ip": ip};
 				return _raiseMessage( now, constant.VIOLATION_STR, app.app_id, com.id, metric.name, m.violation, val, m.priority, other);
 			})
+		}, false);
+}
+
+function convertToSecond(value, unit) {
+	value = parseFloat( value );
+	switch (unit) {
+		case "s":
+			return value;
+		case "ms":
+			return value / 1000;
+		case "us":
+			return value / 1000000;
+	}
+	console.error("unkown unit " + unit);
+	return value;
+}
+
+function _checkE2eLatency( metric, m, app, com ){
+   //nothing to do
+	const ipRange = com.ip;
+	if( !ipRange )
+		return console.log("not found IP range");
+	
+	const [cidrStart, cidrEnd] = calculateCidrRange( ipRange );
+	const now = (new Date()).getTime();
+
+	//the thresholds can be provided via SLA file
+	const min_latency_value = Math.min( metric.alert_value, metric.violation_value );
+	const unit = getUnit( com, metric.name );
+	const min_latency_second = converToSecond( min_latency_value, unit );
+	const min_latency_microsec = min_latency_second / 1000 / 1000;
+	
+	const violation_latency_ms = convertToSecond(metric.violation_value, unit) / 1000;
+	
+	const match = {};
+	//in checking period
+	match[COL.TIMESTAMP] = {"$gte": TIMESTAMP.start,"$lt": TIMESTAMP.end};
+	//1. IP in the list
+	match["ip_src"] = { "$gte": cidrStart, "$lte": cidrEnd };
+	//2. latency > given latency
+	[COL.RTT_MAX_CLIENT, COL.RTT_MAX_SERVER].forEach( (e) => match[e] = {"$gt" : min_latency_microsec} );
+	
+	const groupBy = {"_id": {}};
+	// group by ip_src and ip_dst
+	[COL.IP_SRC, COL.IP_DST].forEach( (e) => groupBy["_id"][e] = "$"+e);
+	// sum by
+	[COL.RTT_MAX_CLIENT, COL.RTT_MAX_SERVER].forEach( (e) => groupBy[e] = {"$max" : "$"+e} );
+	
+	dbconnector._queryDB( "data_link_real", "aggregate", [
+		{"$match"  : match},
+		{"$group"  : groupBy}
+		], 
+		function( err, result){
+			if( err )
+				return console.error( err );
+			if( result.length  == 0 ) 
+				return;
+			console.log(result);
+			//result = [ { '7': 1321, '8': 295534, _id: { '18': '10.0.2.2' } } ]
+			result.forEach( function(row){
+				const ip         = row["_id"][COL.IP_SRC];
+				const target     = row["_id"][COL.IP_DST];
+				// latency in micro seconds
+				const latency_us = Math.max( row[COL.RTT_MAX_CLIENT], row[COL.RTT_MAX_SERVER] );
+				const latency_ms = Math.round( latency_us / 1000 );
+				
+				// create a security alert to show it in "security" dashboard
+				const val = [["ip.src", ip], 
+						["ip.dst", target], 
+						["latency_ms",  latency_ms], 
+				];
+				console.log("=> E2eLatency detected ", latency_ms);
+				//create a security alert only when the metric is violated
+				if( latency_ms >= violation_latency_ms )
+					_createSecurityAlert(app.app_id, "operator", now, metric.id, "detected", "attack", metric.title, 
+						{"event_1": {"timestamp": now, "description": "detected by SLA viloation checking engine", "attributes": val}});
+
+				const other = {"ip": ip};
+				
+				let type = constant.ALERT_STR;
+				if( latency_ms >= violation_latency_ms )
+					type = constant.VIOLATION_STR;
+				return _raiseMessage( now, type, app.app_id, com.id, metric.name, m.violation, val, m.priority, other);
+			}); //end forEach
 		}, false);
 }
 
@@ -518,6 +610,7 @@ function perform_check(){
                      break;
 
                   case "latency.maxE2ELatency":
+                     _checkE2eLatency( metric, m, app, com );
                      break;
 
                   case "latency.lowJitter":
